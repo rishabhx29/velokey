@@ -1,0 +1,192 @@
+[
+  {
+    "name": "English",
+    "code": "english",
+    "has1k": true
+  },
+  {
+    "name": "Spanish",
+    "code": "spanish",
+    "has1k": true
+  },
+  {
+    "name": "French",
+    "code": "french",
+    "has1k": true
+  },
+  {
+    "name": "German",
+    "code": "german",
+    "has1k": true
+  },
+  {
+    "name": "Portuguese",
+    "code": "portuguese",
+    "has1k": true
+  },
+  {
+    "name": "Italian",
+    "code": "italian",
+    "has1k": true
+  },
+  {
+    "name": "Hindi",
+    "code": "hindi",
+    "has1k": true
+  },
+  {
+    "name": "Russian",
+    "code": "russian",
+    "has1k": true
+  },
+  {
+    "name": "Korean",
+    "code": "korean",
+    "has1k": true
+  },
+  {
+    "name": "Dutch",
+    "code": "dutch",
+    "has1k": true
+  },
+  {
+    "name": "Polish",
+    "code": "polish",
+    "has1k": false
+  },
+  {
+    "name": "Swedish",
+    "code": "swedish",
+    "has1k": true
+  },
+  {
+    "name": "Turkish",
+    "code": "turkish",
+    "has1k": true
+  },
+  {
+    "name": "Indonesian",
+    "code": "indonesian",
+    "has1k": true
+  },
+  {
+    "name": "Vietnamese",
+    "code": "vietnamese",
+    "has1k": true
+  },
+  {
+    "name": "Czech",
+    "code": "czech",
+    "has1k": true
+  },
+  {
+    "name": "Greek",
+    "code": "greek",
+    "has1k": true
+  },
+  {
+    "name": "Romanian",
+    "code": "romanian",
+    "has1k": true
+  },
+  {
+    "name": "Hungarian",
+    "code": "hungarian",
+    "has1k": true
+  },
+  {
+    "name": "Finnish",
+    "code": "finnish",
+    "has1k": true
+  },
+  {
+    "name": "Danish",
+    "code": "danish",
+    "has1k": true
+  },
+  {
+    "name": "Hebrew",
+    "code": "hebrew",
+    "has1k": true
+  },
+  {
+    "name": "Ukrainian",
+    "code": "ukrainian",
+    "has1k": true
+  },
+  {
+    "name": "Malay",
+    "code": "malay",
+    "has1k": true
+  },
+  {
+    "name": "Tamil",
+    "code": "tamil",
+    "has1k": true
+  },
+  {
+    "name": "Urdu",
+    "code": "urdu",
+    "has1k": true
+  },
+  {
+    "name": "Thai",
+    "code": "thai",
+    "has1k": true
+  },
+  {
+    "name": "Arabic",
+    "code": "arabic",
+    "has1k": false
+  },
+{
+    "name": "Persian",
+    "code": "persian",
+    "has1k": true
+  },
+  {
+    "name": "Bengali",
+    "code": "bangla",
+    "has1k": false
+  },
+  {
+    "name": "Chinese (Simplified, Pinyin)",
+    "code": "chinese_simplified",
+    "has1k": true
+  },
+  {
+    "name": "Chinese (Simplified, Wubi)",
+    "code": "chinese_simplified_wubi",
+    "has1k": true
+  },
+  {
+    "name": "Chinese (Traditional, Pinyin)",
+    "code": "chinese_traditional",
+    "has1k": true
+  },
+  {
+    "name": "Chinese (Traditional, Zhuyin)",
+    "code": "chinese_traditional_zhuyin",
+    "has1k": true
+  },
+  {
+    "name": "Chinese (Traditional, Cangjie)",
+    "code": "chinese_traditional_cangjie",
+    "has1k": true
+  },
+  {
+    "name": "Japanese (Hiragana)",
+    "code": "japanese_hiragana",
+    "has1k": false
+  },
+  {
+    "name": "Japanese (Katakana)",
+    "code": "japanese_katakana",
+    "has1k": false
+  },
+  {
+    "name": "Japanese (Romaji)",
+    "code": "japanese_romaji",
+    "has1k": true
+  }
+]
