@@ -1,0 +1,5 @@
+{
+  "name": "velokey-race",
+  "main": "party/race-room.ts",
+  "compatibilityDate": "2024-01-01"
+}
