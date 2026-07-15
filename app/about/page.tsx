@@ -1,0 +1,191 @@
+import Link from "next/link"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "About — VeloKey",
+  description:
+    "VeloKey is an open-source minimalist typing practice web application.",
+}
+
+export const revalidate = 3600
+
+const REPO_OWNER = "rishabhx29"
+const REPO_NAME = "velokey"
+
+interface Contributor {
+  login: string
+  html_url: string
+  avatar_url: string
+  contributions: number
+}
+
+async function fetchContributors(): Promise<Contributor[]> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contributors?per_page=100`,
+      {
+        next: { revalidate },
+        headers: { Accept: "application/vnd.github+json" },
+      }
+    )
+    if (!res.ok) return []
+    return (await res.json()) as Contributor[]
+  } catch {
+    return []
+  }
+}
+
+export default async function AboutPage() {
+  const contributors = await fetchContributors()
+
+  return (
+    <main className="flex flex-1 flex-col px-6 py-10 md:py-16">
+      <article className=" w-full mx-auto max-w-site space-y-6 text-muted-foreground">
+        <h1 className="font-(family-name:--font-doto) text-3xl font-bold text-foreground md:text-4xl">
+          About VeloKey
+        </h1>
+        <p className="text-sm text-muted-foreground/50 -mt-2">
+          🚀 Minimalist Typing Practice Web Application
+        </p>
+        <p className="leading-relaxed">
+          VeloKey is a clean, distraction-free browser-based typing practice
+          application built for speed, accuracy, and flow. It is{" "}
+          <a
+            href="https://github.com/rishabhx29/velokey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            open source
+          </a>{" "}
+          and free to use or fork.
+        </p>
+        <p className="leading-relaxed">
+          Featuring responsive virtual keyboards, customizable difficulty tiers (Easy, Medium, Hard, Quotes),
+          mechanical switch sound packs, and curated themes. VeloKey is an independent project designed for
+          touch-typists and developers who value minimal aesthetics.
+        </p>
+        <p className="leading-relaxed">
+          Want the full tour? Visit the{" "}
+          <Link
+            href="/landing"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            landing page
+          </Link>
+          .
+        </p>
+        <p className="leading-relaxed">
+          If you spot a bug or want to improve something,{" "}
+          <a
+            href={`https://github.com/${REPO_OWNER}/${REPO_NAME}/issues`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            raise an issue or request a feature
+          </a>{" "}
+          on GitHub.
+        </p>
+
+        <h2 className="font-(family-name:--font-doto) text-xl font-semibold text-foreground">
+          Keyboard Shortcuts
+        </h2>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-foreground mb-2">Typing Test</h3>
+            <ul className="list-inside list-disc space-y-1 text-sm">
+              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">tab</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Restart test</li>
+              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">shift</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - End test (Zen mode)</li>
+              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">ctrl</kbd> / <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">alt</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">backspace</kbd> - Delete current word</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground mb-2">Results Screen</h3>
+            <ul className="list-inside list-disc space-y-1 text-sm">
+              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Next test</li>
+              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">ctrl</kbd> / <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">cmd</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Restart test</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2 className="font-(family-name:--font-doto) text-xl font-semibold text-foreground">
+          Privacy & Data Collection
+        </h2>
+        <p className="leading-relaxed">
+          VeloKey uses Google Analytics to collect anonymous usage data such as typing
+          speed, accuracy, and feature usage. This helps identify bugs, improve UX, and
+          prioritize new features. No personal information is collected. Data is
+          processed in accordance with Google&apos;s{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Privacy Policy
+          </a>
+          .
+        </p>
+
+
+
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground">Contributors</p>
+          {contributors.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Could not load contributors.{" "}
+              <a
+                href={`https://github.com/${REPO_OWNER}/${REPO_NAME}/graphs/contributors`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                View on GitHub ↗
+              </a>
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {contributors.map((c) => (
+                <a
+                  key={c.login}
+                  href={c.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`${c.login} — ${c.contributions} commit${c.contributions === 1 ? "" : "s"}`}
+                  className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/50 hover:bg-muted/40"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={c.avatar_url}
+                    alt={c.login}
+                    width={20}
+                    height={20}
+                    className="rounded-full"
+                  />
+                  <span>@{c.login}</span>
+                  <span className="font-(family-name:--font-mono) text-[11px] text-muted-foreground">
+                    {c.contributions}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          © {new Date().getFullYear()} Rishabh Tripathi.
+        </p>
+
+        <p>
+          <Link
+            href="/"
+            className="text-sm text-primary underline-offset-4 hover:underline"
+          >
+            ← Back to typing test
+          </Link>
+        </p>
+      </article>
+    </main>
+  )
+}
