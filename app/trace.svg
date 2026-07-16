@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <title>VeloKey</title>
+  <style>
+    /* Light: matches :root --background / --primary (teal) */
+    .bg { fill: #ffffff; }
+    .v {
+      stroke: #2b7f9c;
+      stroke-width: 2.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+    .bezel { stroke: #2b7f9c; stroke-opacity: 0.35; stroke-width: 1.5; fill: none; }
+    .inner { fill: #ffffff; stroke: #2b7f9c; stroke-opacity: 0.15; stroke-width: 1; }
+    .led { fill: #2b7f9c; }
+    /* Dark: matches .dark --background / brighter --primary for small-icon contrast */
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d0d11; }
+      .v { stroke: #58a4be; }
+      .bezel { stroke: #58a4be; }
+      .inner { fill: #0d0d11; stroke: #58a4be; }
+      .led { fill: #58a4be; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="8" />
+  <rect class="bezel" x="1.5" y="1.5" width="29" height="29" rx="7" />
+  <rect class="inner" x="4.5" y="4.5" width="23" height="23" rx="5.5" />
+  <path class="v" d="M 9.5 21.5 L 15 16 L 9.5 10.5 M 16.5 21.5 L 22 16 L 16.5 10.5" />
+  <circle class="led" cx="27.5" cy="4.5" r="2.5" />
+</svg>
