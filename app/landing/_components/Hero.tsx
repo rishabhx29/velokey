@@ -55,10 +55,10 @@ function UnderlineSquiggle() {
         style={{
           strokeDasharray: 380,
           strokeDashoffset: 380,
-          animation: "kz-draw 1.2s ease 0.7s forwards",
+          animation: "velokey-draw 1.2s ease 0.7s forwards",
         }}
       />
-      <style>{`@keyframes kz-draw { to { stroke-dashoffset: 0; } }`}</style>
+      <style>{`@keyframes velokey-draw { to { stroke-dashoffset: 0; } }`}</style>
     </svg>
   )
 }

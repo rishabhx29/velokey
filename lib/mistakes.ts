@@ -1,7 +1,7 @@
 // Persistent dictionary of all-time problem words (mistyped + slow), accumulated
 // across every completed test. Words graduate out once typed cleanly enough.
-const STORAGE_KEY = "kz-mistakes";
-const HISTORY_KEY = "kz-mistakes-history";
+const STORAGE_KEY = "velokey-mistakes";
+const HISTORY_KEY = "velokey-mistakes-history";
 const HISTORY_MAX = 60; // mastery snapshots kept for the trend chart
 const WINDOW = 8; // rolling outcomes kept per word
 const GRADUATE_AFTER = 5; // consecutive clean hits → drop from dict

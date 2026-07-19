@@ -1,5 +1,5 @@
-// Key format: "kz-pb-{mode}-{detail}" e.g. "kz-pb-time-30", "kz-pb-quote-medium"
-const PB_PREFIX = "kz-pb-";
+// Key format: "velokey-pb-{mode}-{detail}" e.g. "velokey-pb-time-30".
+const PB_PREFIX = "velokey-pb-";
 
 export interface PersonalBest {
   wpm: number;

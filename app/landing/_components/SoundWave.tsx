@@ -63,7 +63,7 @@ function Marquee() {
         className="flex shrink-0 items-center gap-10 whitespace-nowrap font-mono text-[12px] uppercase tracking-[0.22em]"
         style={{
           color: `${CREAM}90`,
-          animation: "kz-marquee 30s linear infinite",
+          animation: "velokey-marquee 30s linear infinite",
         }}
       >
         {[...items, ...items, ...items].map((t, i) => (
@@ -73,7 +73,7 @@ function Marquee() {
           </span>
         ))}
       </div>
-      <style>{`@keyframes kz-marquee { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }`}</style>
+      <style>{`@keyframes velokey-marquee { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }`}</style>
     </div>
   );
 }

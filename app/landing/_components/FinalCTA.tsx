@@ -73,13 +73,13 @@ function LaunchSignal() {
                 opacity: [0, 11, 23, 35].includes(i)
                   ? 1
                   : 0.18 + (i % 5) * 0.12,
-                animation: `kz-signal ${0.8 + (i % 4) * 0.12}s ease-in-out ${i * 0.025}s infinite alternate`,
+                animation: `velokey-signal ${0.8 + (i % 4) * 0.12}s ease-in-out ${i * 0.025}s infinite alternate`,
               }}
             />
           ))}
         </div>
       </div>
-      <style>{`@keyframes kz-signal { to { opacity: 0.95; transform: translateY(-1px); } }`}</style>
+      <style>{`@keyframes velokey-signal { to { opacity: 0.95; transform: translateY(-1px); } }`}</style>
     </div>
   );
 }

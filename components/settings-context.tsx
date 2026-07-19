@@ -100,7 +100,7 @@ function applyFontToDom(fontId: TypingFont) {
   document.documentElement.style.setProperty("--typing-font", option.cssFamily);
 }
 
-const THEME_LINK_ID = "kz-color-theme";
+const THEME_LINK_ID = "velokey-color-theme";
 
 /** System font keywords that don't need to be loaded from Google Fonts */
 const SYSTEM_FONT_PREFIXES = ["ui-", "system-ui", "-apple-", "BlinkMacSystemFont"];
