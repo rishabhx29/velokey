@@ -12,6 +12,7 @@ const staticRoutes: StaticRoute[] = [
   { path: "/landing", changeFrequency: "weekly", priority: 0.9 },
   { path: "/about", changeFrequency: "monthly", priority: 0.6 },
   { path: "/changelog", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/stats", changeFrequency: "weekly", priority: 0.7 },
 ]
 
 function joinUrl(baseUrl: string, path: string): string {

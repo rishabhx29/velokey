@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: ["/api/", "/race/"],
     },
     sitemap: joinUrl(siteConfig.url, "/sitemap.xml"),
     host: siteConfig.url.replace(/\/+$/, ""),
