@@ -45,13 +45,20 @@ If you use npm or Yarn, run the equivalent of `install` and the scripts from `pa
 
    This installs all packages and runs **`postinstall`**, which copies quote text from the `inspirational-quotes` package into `data/quotes.json` and generates required data files.
 
-3. **Run the development server**
+3. **Configure the realtime server**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. **Run the web and realtime servers in separate terminals**
 
    ```bash
    pnpm dev
+   pnpm realtime:dev
    ```
 
-4. **Open the site**
+5. **Open the site**
 
    In your browser go to [http://localhost:3000](http://localhost:3000).
 
@@ -63,6 +70,22 @@ If you use npm or Yarn, run the equivalent of `install` and the scripts from `pa
 pnpm build
 pnpm start
 ```
+
+The multiplayer service is deployed independently from the Next.js app:
+
+```bash
+pnpm realtime:deploy
+```
+
+Set `NEXT_PUBLIC_PARTYKIT_HOST` in the web deployment to the PartyKit host
+created by that deployment. The browser connects directly to this service, so
+the typing-race WebSocket does not pass through the Next.js server.
+
+## Multiplayer architecture
+
+- `app/`, `components/`, `hooks/`, and `lib/` are the Next.js web application.
+- `realtime/` is the authoritative PartyKit game service, deployed and scaled independently.
+- `shared/` contains the race protocol consumed by both sides. It must remain runtime-neutral.
 
 By default the app listens on port **3000** (`next start`). Use `pnpm start -- -p 4000` (or your host’s process manager) to change the port.
 
@@ -79,6 +102,8 @@ Audio uses the **Web Audio API**. Many browsers only unlock audio after a **user
 | Command | Description |
 |--------|-------------|
 | `pnpm dev` | Development server (Turbopack) |
+| `pnpm realtime:dev` | PartyKit multiplayer server |
+| `pnpm realtime:deploy` | Deploy the multiplayer server |
 | `pnpm build` | Optimized production build |
 | `pnpm start` | Serve the production build |
 | `pnpm lint` | Run ESLint |
@@ -99,6 +124,7 @@ Audio uses the **Web Audio API**. Many browsers only unlock audio after a **user
 
 ## Author
 
-**Rishabh Tripathi**  
-Email: `rishabh.j.tripathi2903@gmail.com`  
+**Rishabh**
+
+Email: [rishabh.j.tripathi@gmail.com](mailto:rishabh.j.tripathi@gmail.com)
 GitHub: [rishabhx29](https://github.com/rishabhx29)

@@ -9,13 +9,14 @@ import { SettingsProvider } from "@/components/settings-context"
 import { siteConfig } from "@/lib/site"
 import { cn } from "@/lib/utils"
 
-const spaceGrotesk = Space_Grotesk({subsets:['latin'],variable:'--font-sans'})
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans", display: "swap" })
 
-const doto = Doto({ subsets: ['latin'], variable: '--font-doto' })
+const doto = Doto({ subsets: ["latin"], variable: "--font-doto", display: "swap" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
@@ -32,9 +33,12 @@ export const metadata: Metadata = {
     "VeloKey app",
     "minimalist typing",
   ],
-  authors: [{ name: "Rishabh Tripathi" }],
-  creator: "Rishabh Tripathi",
+  authors: [{ name: "Rishabh" }],
+  creator: "Rishabh",
+  applicationName: siteConfig.name,
+  category: "education",
   metadataBase: new URL(siteConfig.url),
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "en_US",

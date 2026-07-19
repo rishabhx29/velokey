@@ -76,6 +76,16 @@ export default async function AboutPage() {
           .
         </p>
         <p className="leading-relaxed">
+          For questions or feedback, contact Rishabh at{" "}
+          <a
+            href="mailto:rishabh.j.tripathi@gmail.com"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            rishabh.j.tripathi@gmail.com
+          </a>
+          .
+        </p>
+        <p className="leading-relaxed">
           If you spot a bug or want to improve something,{" "}
           <a
             href={`https://github.com/${REPO_OWNER}/${REPO_NAME}/issues`}
@@ -174,7 +184,7 @@ export default async function AboutPage() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Rishabh Tripathi.
+          © {new Date().getFullYear()} Rishabh.
         </p>
 
         <p>

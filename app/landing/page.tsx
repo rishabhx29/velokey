@@ -252,28 +252,21 @@ function TopBar() {
             style={{ borderLeft: `1px solid ${CREAM}10` }}
           >
             <a
-              href="https://x.com/sh17va"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Follow on X"
+              href="mailto:rishabh.j.tripathi@gmail.com"
+              aria-label="Email Rishabh"
               className="group grid place-items-center px-3 transition-colors lg:px-3.5 cursor-pointer"
               style={{
                 color: `${CREAM}b0`,
                 borderRight: `1px solid ${CREAM}08`,
               }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 16 16"
-                height="14"
-                width="14"
+              <span
                 aria-hidden
-                fill="currentColor"
-                className="transition-transform duration-300 group-hover:scale-110 group-hover:text-(--c)"
+                className="font-mono text-sm font-semibold transition-transform duration-300 group-hover:scale-110 group-hover:text-(--c)"
                 style={{ ["--c" as string]: CREAM } as CSSProperties}
               >
-                <path d="M12.6 0.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867 -5.07 -4.425 5.07H0.316l5.733 -6.57L0 0.75h5.063l3.495 4.633L12.601 0.75Zm-0.86 13.028h1.36L4.323 2.145H2.865z" />
-              </svg>
+                @
+              </span>
             </a>
 
             <Link
