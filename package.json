@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "type": "module",
   "author": {
-    "name": "Rishabh Tripathi",
-    "email": "rishabh.j.tripathi2903@gmail.com"
+    "name": "Rishabh",
+    "email": "rishabh.j.tripathi@gmail.com"
   },
   "license": "Apache-2.0",
   "private": false,
   "scripts": {
     "dev": "next dev --webpack",
+    "realtime:dev": "partykit dev",
+    "realtime:deploy": "partykit deploy",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
