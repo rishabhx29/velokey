@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import type { UseRaceConnectionReturn } from "@/hooks/use-race-connection"
 import { extractCodeSuffix } from "@/lib/room-code"
 import { toast } from "sonner"
-import { MAX_PLAYERS } from "@/lib/race-protocol"
+import { MAX_PLAYERS } from "@/shared/race-protocol"
 
 interface RaceLobbyProps {
   connection: UseRaceConnectionReturn

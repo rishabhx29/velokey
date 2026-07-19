@@ -12,8 +12,8 @@ import type {
   RoomConfig,
   RaceProgress,
   LeaderboardEntry,
-} from "@/lib/race-protocol"
-import { PROGRESS_THROTTLE_MS } from "@/lib/race-protocol"
+} from "@/shared/race-protocol"
+import { PROGRESS_THROTTLE_MS } from "@/shared/race-protocol"
 import { getOrCreateNickname, getOrCreateColor, getOrCreateSessionId } from "@/lib/race-identity"
 import { markPerformance, measurePerformance } from "@/lib/performance-metrics"
 

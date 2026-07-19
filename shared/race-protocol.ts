@@ -1,7 +1,7 @@
 // ── Race Protocol ─────────────────────────────────────────────────────────────
 // Shared types for multiplayer typing races.
 // Used by both the client (hooks/use-race-connection.ts) and the
-// PartyKit server (party/race-room.ts).
+// PartyKit server (realtime/race-room.ts).
 
 // ── Enums & Constants ────────────────────────────────────────────────────────
 

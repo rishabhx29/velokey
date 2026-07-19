@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import { generateRoomCode } from "@/lib/room-code"
 import { normalizeRoomCode, isValidRoomCode } from "@/lib/room-code"
 import { getOrCreateNickname, setNickname, refreshNickname } from "@/lib/race-identity"
-import type { RaceMode } from "@/lib/race-protocol"
+import type { RaceMode } from "@/shared/race-protocol"
 import { useQuickMatch } from "@/hooks/use-quick-match"
 
 interface RaceCreateJoinDialogProps {

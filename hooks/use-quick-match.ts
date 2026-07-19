@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import PartySocket from "partysocket"
-import { MATCHMAKER_ROOM_ID, QUICK_MATCH_WAIT_MS, type MatchedMsg, type RoomConfig, type ServerMessage } from "@/lib/race-protocol"
+import { MATCHMAKER_ROOM_ID, QUICK_MATCH_WAIT_MS, type MatchedMsg, type RoomConfig, type ServerMessage } from "@/shared/race-protocol"
 import { getOrCreateColor, getOrCreateNickname, getOrCreateSessionId } from "@/lib/race-identity"
 
 const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999"

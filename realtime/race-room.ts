@@ -12,7 +12,7 @@ import type {
   RaceProgress,
   LeaderboardEntry,
   FinishMsg,
-} from "../lib/race-protocol"
+} from "../shared/race-protocol"
 import {
   MAX_PLAYERS,
   COUNTDOWN_SECONDS,
@@ -20,7 +20,7 @@ import {
   DISCONNECT_GRACE_MS,
   MATCHMAKER_ROOM_ID,
   PROGRESS_BROADCAST_MS,
-} from "../lib/race-protocol"
+} from "../shared/race-protocol"
 
 // ── Word generation (server-side, simplified) ────────────────────────────────
 // We can't import `random-words` npm package in PartyKit edge runtime easily,

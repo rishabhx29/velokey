@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
-import type { Player, RaceProgress, RoomConfig } from "@/lib/race-protocol"
+import type { Player, RaceProgress, RoomConfig } from "@/shared/race-protocol"
 import { IconFlag2Filled } from "@tabler/icons-react"
 
 interface RaceProgressStripProps {
