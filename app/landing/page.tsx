@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import type { CSSProperties } from "react"
 import { motion, useScroll, useMotionValueEvent } from "motion/react"
 import Link from "next/link"
@@ -19,6 +19,8 @@ import { SoundWave } from "./_components/SoundWave"
 import { FinalCTA } from "./_components/FinalCTA"
 import { FAQ } from "./_components/FAQ"
 import { Footer } from "./_components/Footer"
+
+const LandingIntro = lazy(() => import("./_components/LandingIntro"))
 
 type LandingStyle = CSSProperties & Record<`--${string}`, string>
 
@@ -65,6 +67,14 @@ const landingStyle: LandingStyle = {
 
 export default function LandingPage() {
   const router = useRouter()
+  const [landingReady, setLandingReady] = useState(false)
+  const [showIntro, setShowIntro] = useState(false)
+  const handleIntroComplete = useCallback(() => setLandingReady(true), [])
+
+  useEffect(() => {
+    const loadIntro = window.setTimeout(() => setShowIntro(true), 0)
+    return () => window.clearTimeout(loadIntro)
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -108,21 +118,47 @@ export default function LandingPage() {
       className="landing-theme relative min-h-screen overflow-x-hidden font-sans"
       style={landingStyle}
     >
-      <BackgroundGrid />
-      <NoiseOverlay />
-      <TopBar />
-      <Hero />
-      <KeyboardStrip />
-      <MobileSurface />
-      <Modes />
-      <LanguageSupport />
-      <StatsShowcase />
-      <Process />
-      <SoundWave />
-      <FAQ />
-      <FinalCTA />
-      <Footer />
+      <div
+        aria-hidden={!landingReady}
+        inert={!landingReady}
+        className={`transition-opacity duration-500 ease-out ${landingReady ? "opacity-100" : "pointer-events-none invisible opacity-0"}`}
+      >
+        <BackgroundGrid />
+        <NoiseOverlay />
+        <TopBar />
+        <Hero />
+        <KeyboardStrip />
+        <MobileSurface />
+        <Modes />
+        <LanguageSupport />
+        <StatsShowcase />
+        <Process />
+        <SoundWave />
+        <FAQ />
+        <FinalCTA />
+        <Footer />
+      </div>
+      <Suspense fallback={<LandingIntroFallback />}>
+        {showIntro ? (
+          <LandingIntro onComplete={handleIntroComplete} />
+        ) : (
+          <LandingIntroFallback />
+        )}
+      </Suspense>
     </div>
+  )
+}
+
+function LandingIntroFallback() {
+  return (
+    <div
+      data-testid="landing-intro-loading"
+      className="fixed inset-0 z-50"
+      style={{
+        background:
+          "radial-gradient(circle at 50% 41%, #ffffff 0%, #dceefa 30%, #a8d2e8 68%, #6fa4c4 100%)",
+      }}
+    />
   )
 }
 
@@ -254,7 +290,7 @@ function TopBar() {
             <a
               href="mailto:rishabh.j.tripathi@gmail.com"
               aria-label="Email Rishabh"
-              className="group grid place-items-center px-3 transition-colors lg:px-3.5 cursor-pointer"
+              className="group grid cursor-pointer place-items-center px-3 transition-colors lg:px-3.5"
               style={{
                 color: `${CREAM}b0`,
                 borderRight: `1px solid ${CREAM}08`,
@@ -271,7 +307,7 @@ function TopBar() {
 
             <Link
               href="/"
-              className="group relative flex h-full max-w-[11.75rem] items-center justify-center gap-1.5 overflow-hidden px-2 text-[10px] leading-none font-semibold tracking-[0.1em] uppercase whitespace-nowrap transition-colors sm:px-3 sm:text-[11px] lg:gap-2 lg:px-3.5 lg:tracking-[0.12em]"
+              className="group relative flex h-full max-w-[11.75rem] items-center justify-center gap-1.5 overflow-hidden px-2 text-[10px] leading-none font-semibold tracking-[0.1em] whitespace-nowrap uppercase transition-colors sm:px-3 sm:text-[11px] lg:gap-2 lg:px-3.5 lg:tracking-[0.12em]"
               style={{
                 background: CYAN,
                 color: INK,
