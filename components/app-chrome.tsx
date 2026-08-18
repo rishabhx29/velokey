@@ -11,11 +11,20 @@ import {
   type ReactNode,
 } from "react"
 import { useMountEffect } from "@/hooks/use-mount-effect"
-import { applyCustomThemeToDom, loadCustomTheme } from "@/components/theme-studio-dialog"
+import {
+  applyCustomThemeToDom,
+  loadCustomTheme,
+} from "@/components/theme-studio-dialog"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "motion/react"
-import { IconInfoCircle, IconSettings, IconTargetArrow, IconChartLine, IconSwords } from "@tabler/icons-react"
+import {
+  IconInfoCircle,
+  IconSettings,
+  IconTargetArrow,
+  IconChartLine,
+  IconSwords,
+} from "@tabler/icons-react"
 import { GithubLogo } from "@phosphor-icons/react"
 
 import { CornerBrackets } from "@/components/corner-brackets"
@@ -43,14 +52,12 @@ const AppChromeContext = createContext<AppChromeContextValue | null>(null)
 
 export function useAppChrome() {
   const ctx = useContext(AppChromeContext)
-  if (!ctx)
-    throw new Error("useAppChrome must be used within AppChrome")
+  if (!ctx) throw new Error("useAppChrome must be used within AppChrome")
   return ctx
 }
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const isLanding = pathname === "/landing"
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [testSettingsOpen, setTestSettingsOpen] = useState(false)
   const [typingActive, setTypingActive] = useState(false)
@@ -79,12 +86,18 @@ export function AppChrome({ children }: { children: ReactNode }) {
         setKeyboardInset(height)
       }
       // @ts-ignore
-      navigator.virtualKeyboard.addEventListener("geometrychange", onGeometryChange)
+      navigator.virtualKeyboard.addEventListener(
+        "geometrychange",
+        onGeometryChange
+      )
 
       return () => {
         window.removeEventListener("resize", checkMobile)
         // @ts-ignore
-        navigator.virtualKeyboard.removeEventListener("geometrychange", onGeometryChange)
+        navigator.virtualKeyboard.removeEventListener(
+          "geometrychange",
+          onGeometryChange
+        )
       }
     }
 
@@ -135,7 +148,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       startPracticeRef,
       setDashboardOpen,
     }),
-    [settingsOpen, testSettingsOpen, typingActive],
+    [settingsOpen, testSettingsOpen, typingActive]
   )
 
   const keyboardOpen = keyboardInset > 0
@@ -146,7 +159,10 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <motion.div
         initial={false}
         animate={{
-          height: (isMobile && keyboardOpen) ? `calc(100dvh - ${keyboardInset}px)` : "100dvh",
+          height:
+            isMobile && keyboardOpen
+              ? `calc(100dvh - ${keyboardInset}px)`
+              : "100dvh",
           opacity: keyboardOpen ? [0.9, 1] : 1,
           y: keyboardOpen ? [14, 0] : 0,
         }}
@@ -156,24 +172,41 @@ export function AppChrome({ children }: { children: ReactNode }) {
           y: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
         }}
         className="flex w-full flex-col bg-background"
-        style={{ minHeight: (isMobile && keyboardOpen) ? 0 : "100dvh" }}
+        style={{ minHeight: isMobile && keyboardOpen ? 0 : "100dvh" }}
       >
-        {!isLanding && <SiteHeader />}
+        <SiteHeader />
         {children}
       </motion.div>
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </AppChromeContext.Provider>
   )
 }
 
-function VeloKeyLogo({ onClick, isButton }: { onClick?: () => void; isButton?: boolean }) {
+function VeloKeyLogo({
+  onClick,
+  isButton,
+}: {
+  onClick?: () => void
+  isButton?: boolean
+}) {
   const content = (
     <div className="group flex items-center gap-3 select-none">
       {/* 3D Keycap Emblem */}
       <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-[1px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-105 group-active:scale-95">
-        <div className="absolute inset-0 rounded-xl border border-primary/30 group-hover:border-primary/60 transition-colors" />
-        <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-background/90 backdrop-blur-md shadow-sm">
-          <svg className="h-5 w-5 text-primary transition-transform duration-300 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="absolute inset-0 rounded-xl border border-primary/30 transition-colors group-hover:border-primary/60" />
+        <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-background/90 shadow-sm backdrop-blur-md">
+          <svg
+            className="h-5 w-5 text-primary transition-transform duration-300 group-hover:translate-x-0.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M7 17l5-5-5-5" />
             <path d="M13 17l5-5-5-5" />
           </svg>
@@ -183,10 +216,10 @@ function VeloKeyLogo({ onClick, isButton }: { onClick?: () => void; isButton?: b
 
       {/* Typography Lockup */}
       <div className="flex flex-col text-left">
-        <span className="font-sans text-xl font-extrabold tracking-tight text-foreground flex items-center gap-0.5">
-          Velo<span className="text-primary font-mono font-bold">Key</span>
+        <span className="flex items-center gap-0.5 font-sans text-xl font-extrabold tracking-tight text-foreground">
+          Velo<span className="font-mono font-bold text-primary">Key</span>
         </span>
-        <span className="text-[9px] uppercase tracking-[0.24em] font-mono font-medium text-muted-foreground/75 -mt-1">
+        <span className="-mt-1 font-mono text-[9px] font-medium tracking-[0.24em] text-muted-foreground/75 uppercase">
           Velocity Mode
         </span>
       </div>
@@ -195,14 +228,21 @@ function VeloKeyLogo({ onClick, isButton }: { onClick?: () => void; isButton?: b
 
   if (isButton) {
     return (
-      <button type="button" onClick={onClick} className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
+      <button
+        type="button"
+        onClick={onClick}
+        className="cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
         {content}
       </button>
     )
   }
 
   return (
-    <Link href="/" className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
+    <Link
+      href="/"
+      className="cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
       {content}
     </Link>
   )
@@ -212,8 +252,13 @@ function SiteHeader() {
   const router = useRouter()
   const pathname = usePathname()
   const isHome = pathname === "/"
-  const { typingActive, setSettingsOpen, setDashboardOpen, homeLogoHandlerRef, startPracticeRef } =
-    useAppChrome()
+  const {
+    typingActive,
+    setSettingsOpen,
+    setDashboardOpen,
+    homeLogoHandlerRef,
+    startPracticeRef,
+  } = useAppChrome()
   const [headerVisible, setHeaderVisible] = useState(true)
   const [mouseHeaderVisible, setMouseHeaderVisible] = useState(false)
   const [dashboardOpen, setDashboardOpenLocal] = useState(false)
@@ -239,7 +284,10 @@ function SiteHeader() {
     if (!isHome || !typingActive) return
     setMouseHeaderVisible(true)
     if (headerTimerRef.current) clearTimeout(headerTimerRef.current)
-    headerTimerRef.current = setTimeout(() => setMouseHeaderVisible(false), 2500)
+    headerTimerRef.current = setTimeout(
+      () => setMouseHeaderVisible(false),
+      2500
+    )
   }, [isHome, typingActive])
 
   useMountEffect(() => {
@@ -262,85 +310,111 @@ function SiteHeader() {
 
   return (
     <>
-    <motion.header
-      animate={{ opacity: dimHeader ? (headerVisible ? 1 : 0.1) : 1 }}
-      transition={{ duration: 0.4, ease: "easeInOut" }}
-      onMouseMove={handleHeaderMouseMove}
-      className="flex shrink-0 justify-center border-b border-border/60 bg-background/40 backdrop-blur-lg px-6 py-3 sticky top-0 z-40"
-    >
-      <div className="flex w-full max-w-site items-center justify-between">
-        <div className="flex items-center gap-8">
-          <VeloKeyLogo onClick={handleLogoClick} isButton={isHome} />
+      <motion.header
+        animate={{ opacity: dimHeader ? (headerVisible ? 1 : 0.1) : 1 }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+        onMouseMove={handleHeaderMouseMove}
+        className="sticky top-0 z-40 flex shrink-0 justify-center border-b border-border/60 bg-background/40 px-6 py-3 backdrop-blur-lg"
+      >
+        <div className="flex w-full max-w-site items-center justify-between">
+          <div className="flex items-center gap-8">
+            <VeloKeyLogo onClick={handleLogoClick} isButton={isHome} />
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/stats"
-              prefetch
-              className={cn(
-                iconButtonClass,
-                pathname === "/stats" && "border-primary/50 bg-primary/10 text-foreground",
-              )}
-              aria-current={pathname === "/stats" ? "page" : undefined}
-              aria-label="Stats Dashboard"
-            >
-              <IconChartLine size={16} stroke={1.5} className="transition-transform duration-200 group-hover:scale-110" aria-hidden />
-            </Link>
-            <Link
-              href="/about"
-              prefetch
-              className={cn(
-                iconButtonClass,
-                pathname === "/about" && "border-primary/50 bg-primary/10 text-foreground",
-              )}
-              aria-current={pathname === "/about" ? "page" : undefined}
-              aria-label="About VeloKey"
-            >
-              <IconInfoCircle size={16} stroke={1.5} className="transition-transform duration-200 group-hover:scale-110" aria-hidden />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/stats"
+                prefetch
+                className={cn(
+                  iconButtonClass,
+                  pathname === "/stats" &&
+                    "border-primary/50 bg-primary/10 text-foreground"
+                )}
+                aria-current={pathname === "/stats" ? "page" : undefined}
+                aria-label="Stats Dashboard"
+              >
+                <IconChartLine
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  aria-hidden
+                />
+              </Link>
+              <Link
+                href="/about"
+                prefetch
+                className={cn(
+                  iconButtonClass,
+                  pathname === "/about" &&
+                    "border-primary/50 bg-primary/10 text-foreground"
+                )}
+                aria-current={pathname === "/about" ? "page" : undefined}
+                aria-label="About VeloKey"
+              >
+                <IconInfoCircle
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  aria-hidden
+                />
+              </Link>
 
-            {isHome && (
+              {isHome && (
+                <button
+                  type="button"
+                  onClick={() => setDashboardOpenLocal(true)}
+                  className={cn(iconButtonClass, "cursor-pointer")}
+                  aria-label="Practice dashboard"
+                >
+                  <IconTargetArrow
+                    size={16}
+                    stroke={1.5}
+                    className="transition-transform duration-200 group-hover:scale-110"
+                    aria-hidden
+                  />
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setDashboardOpenLocal(true)}
+                onClick={() => setSettingsOpen(true)}
                 className={cn(iconButtonClass, "cursor-pointer")}
-                aria-label="Practice dashboard"
+                aria-label="Settings"
               >
-                <IconTargetArrow size={16} stroke={1.5} className="transition-transform duration-200 group-hover:scale-110" aria-hidden />
+                <IconSettings
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:rotate-45"
+                />
               </button>
-            )}
-            
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              className={cn(iconButtonClass, "cursor-pointer")}
-              aria-label="Settings"
-            >
-              <IconSettings size={16} stroke={1.5} className="transition-transform duration-200 group-hover:rotate-45" />
-            </button>
+            </div>
           </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => setRaceDialogOpen(true)}
-          className="group flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-sm font-medium text-primary shadow-xs backdrop-blur-md transition-all duration-200 hover:border-primary/60 hover:bg-primary/15 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <IconSwords size={16} stroke={1.5} className="transition-transform duration-200 group-hover:scale-110" aria-hidden />
-          <span>Join a Race</span>
-        </button>
-      </div>
-    </motion.header>
-    {isHome && (
-      <PracticeDashboard
-        open={dashboardOpen}
-        onOpenChange={setDashboardOpenLocal}
-        onStartPractice={(words) => startPracticeRef.current?.(words)}
+          <button
+            type="button"
+            onClick={() => setRaceDialogOpen(true)}
+            className="group flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-sm font-medium text-primary shadow-xs backdrop-blur-md transition-all duration-200 hover:border-primary/60 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95"
+          >
+            <IconSwords
+              size={16}
+              stroke={1.5}
+              className="transition-transform duration-200 group-hover:scale-110"
+              aria-hidden
+            />
+            <span>Join a Race</span>
+          </button>
+        </div>
+      </motion.header>
+      {isHome && (
+        <PracticeDashboard
+          open={dashboardOpen}
+          onOpenChange={setDashboardOpenLocal}
+          onStartPractice={(words) => startPracticeRef.current?.(words)}
+        />
+      )}
+      <RaceCreateJoinDialog
+        open={raceDialogOpen}
+        onOpenChange={setRaceDialogOpen}
       />
-    )}
-    <RaceCreateJoinDialog 
-      open={raceDialogOpen} 
-      onOpenChange={setRaceDialogOpen} 
-    />
     </>
   )
 }

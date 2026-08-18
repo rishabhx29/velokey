@@ -40,11 +40,11 @@ export default async function AboutPage() {
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 md:py-16">
-      <article className=" w-full mx-auto max-w-site space-y-6 text-muted-foreground">
+      <article className="mx-auto w-full max-w-site space-y-6 text-muted-foreground">
         <h1 className="font-(family-name:--font-doto) text-3xl font-bold text-foreground md:text-4xl">
           About VeloKey
         </h1>
-        <p className="text-sm text-muted-foreground/50 -mt-2">
+        <p className="-mt-2 text-sm text-muted-foreground/50">
           🚀 Minimalist Typing Practice Web Application
         </p>
         <p className="leading-relaxed">
@@ -61,19 +61,10 @@ export default async function AboutPage() {
           and free to use or fork.
         </p>
         <p className="leading-relaxed">
-          Featuring responsive virtual keyboards, customizable difficulty tiers (Easy, Medium, Hard, Quotes),
-          mechanical switch sound packs, and curated themes. VeloKey is an independent project designed for
+          Featuring responsive virtual keyboards, customizable difficulty tiers
+          (Easy, Medium, Hard, Quotes), mechanical switch sound packs, and
+          curated themes. VeloKey is an independent project designed for
           touch-typists and developers who value minimal aesthetics.
-        </p>
-        <p className="leading-relaxed">
-          Want the full tour? Visit the{" "}
-          <Link
-            href="/landing"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            landing page
-          </Link>
-          .
         </p>
         <p className="leading-relaxed">
           For questions or feedback, contact Rishabh at{" "}
@@ -103,18 +94,69 @@ export default async function AboutPage() {
         </h2>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-foreground mb-2">Typing Test</h3>
+            <h3 className="mb-2 font-semibold text-foreground">Typing Test</h3>
             <ul className="list-inside list-disc space-y-1 text-sm">
-              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">tab</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Restart test</li>
-              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">shift</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - End test (Zen mode)</li>
-              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">ctrl</kbd> / <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">alt</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">backspace</kbd> - Delete current word</li>
+              <li>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  tab
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  enter
+                </kbd>{" "}
+                - Restart test
+              </li>
+              <li>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  shift
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  enter
+                </kbd>{" "}
+                - End test (Zen mode)
+              </li>
+              <li>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  ctrl
+                </kbd>{" "}
+                /{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  alt
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  backspace
+                </kbd>{" "}
+                - Delete current word
+              </li>
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold text-foreground mb-2">Results Screen</h3>
+            <h3 className="mb-2 font-semibold text-foreground">
+              Results Screen
+            </h3>
             <ul className="list-inside list-disc space-y-1 text-sm">
-              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Next test</li>
-              <li><kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">ctrl</kbd> / <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">cmd</kbd> + <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">enter</kbd> - Restart test</li>
+              <li>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  enter
+                </kbd>{" "}
+                - Next test
+              </li>
+              <li>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  ctrl
+                </kbd>{" "}
+                /{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  cmd
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  enter
+                </kbd>{" "}
+                - Restart test
+              </li>
             </ul>
           </div>
         </div>
@@ -123,10 +165,10 @@ export default async function AboutPage() {
           Privacy & Data Collection
         </h2>
         <p className="leading-relaxed">
-          VeloKey uses Google Analytics to collect anonymous usage data such as typing
-          speed, accuracy, and feature usage. This helps identify bugs, improve UX, and
-          prioritize new features. No personal information is collected. Data is
-          processed in accordance with Google&apos;s{" "}
+          VeloKey uses Google Analytics to collect anonymous usage data such as
+          typing speed, accuracy, and feature usage. This helps identify bugs,
+          improve UX, and prioritize new features. No personal information is
+          collected. Data is processed in accordance with Google&apos;s{" "}
           <a
             href="https://policies.google.com/privacy"
             target="_blank"
@@ -137,8 +179,6 @@ export default async function AboutPage() {
           </a>
           .
         </p>
-
-
 
         <div className="space-y-3 text-sm">
           <p className="text-muted-foreground">Contributors</p>

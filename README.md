@@ -120,18 +120,6 @@ Audio uses the **Web Audio API**. Many browsers only unlock audio after a **user
 - Motion: [Motion](https://motion.dev)
 - Words / quotes: `random-words`, `inspirational-quotes`
 
-## Creative UI Stack
-
-| Library                                            | Use it for                                                                  |
-| -------------------------------------------------- | --------------------------------------------------------------------------- |
-| `three`, `@react-three/fiber`, `@react-three/drei` | Interactive 3D scenes, WebGL product moments, shaders, models, and helpers. |
-| `@react-three/postprocessing`, `postprocessing`    | Bloom, depth of field, noise, and other GPU post-processing effects.        |
-| `gsap`, `@gsap/react`                              | Choreographed timelines and scroll-driven landing-page animation.           |
-| `lenis`                                            | Smooth scrolling for animation-led marketing pages.                         |
-| `lottie-react`                                     | Lightweight playback of exported Lottie vector animations.                  |
-
-Use Three.js canvases, heavy 3D models, and Lottie files from client components loaded with `next/dynamic`; keep them below the fold unless they are essential to the first view. Motion remains the default for ordinary React transitions and interactions.
-
 ## Development Tooling
 
 | Tool                     | Command                    | Purpose                                                                                                |
@@ -144,7 +132,6 @@ Use Three.js canvases, heavy 3D models, and Lottie files from client components 
 | Storybook                | `npm run storybook`        | Develop and review UI components in isolation at port 6006.                                            |
 | Knip                     | `npm run check:unused`     | Report unused files, exports, and dependencies for review.                                             |
 | Husky + lint-staged      | Runs on `git commit`       | Format and lint staged source changes before each commit.                                              |
-| R3F Test Renderer        | Use in Vitest tests        | Test Three.js scenes without requiring a browser canvas.                                               |
 
 ---
 
