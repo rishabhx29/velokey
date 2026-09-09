@@ -1,4 +1,5 @@
 import { GoogleAnalytics } from "@next/third-parties/google"
+import { Analytics } from "@vercel/analytics/next"
 import { Doto, Geist_Mono, Space_Grotesk } from "next/font/google"
 import type { Metadata } from "next"
 import { Toaster } from "@/components/ui/sonner"
@@ -102,6 +103,7 @@ export default function RootLayout({
           </SettingsProvider>
         </ThemeProvider>
         <GoogleAnalytics gaId="G-CF6Q22DV51" />
+        <Analytics />
       </body>
     </html>
   )
