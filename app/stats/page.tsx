@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import { useState, useMemo, useEffect } from "react";
-import { motion } from "motion/react";
-import Link from "next/link";
+import { useState, useMemo, useEffect } from "react"
+import { motion } from "motion/react"
+import Link from "next/link"
 import {
   IconArrowLeft,
   IconTrash,
@@ -12,7 +12,7 @@ import {
   IconTarget,
   IconFlame,
   IconTrophy,
-} from "@tabler/icons-react";
+} from "@tabler/icons-react"
 import {
   LineChart,
   Line,
@@ -22,38 +22,38 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-} from "recharts";
+} from "recharts"
 import {
   ChartContainer,
   ChartTooltip,
   type ChartConfig,
-} from "@/components/ui/chart";
+} from "@/components/ui/chart"
 import {
   readHistory,
   clearHistory,
   aggregateByDay,
   aggregateKeyAccuracy,
   type TestHistoryEntry,
-} from "@/lib/test-history";
-import { CornerBrackets } from "@/components/corner-brackets";
-import { cn } from "@/lib/utils";
+} from "@/lib/test-history"
+import { CornerBrackets } from "@/components/corner-brackets"
+import { cn } from "@/lib/utils"
 
 const wpmChartConfig: ChartConfig = {
   avgWpm: { label: "Avg WPM", color: "var(--color-primary)" },
   maxWpm: { label: "Peak WPM", color: "hsl(var(--muted-foreground))" },
-};
+}
 
 const keyChartConfig: ChartConfig = {
   accuracy: { label: "Accuracy %", color: "var(--color-primary)" },
-};
+}
 
 // Key color based on accuracy
 function getKeyColor(accuracy: number): string {
-  if (accuracy >= 98) return "var(--color-primary)";
-  if (accuracy >= 95) return "oklch(0.72 0.18 145)"; // green
-  if (accuracy >= 90) return "oklch(0.72 0.18 75)";  // amber
-  if (accuracy >= 80) return "oklch(0.65 0.2 35)";   // orange
-  return "oklch(0.55 0.22 25)";                       // red
+  if (accuracy >= 98) return "var(--color-primary)"
+  if (accuracy >= 95) return "oklch(0.72 0.18 145)" // green
+  if (accuracy >= 90) return "oklch(0.72 0.18 75)" // amber
+  if (accuracy >= 80) return "oklch(0.65 0.2 35)" // orange
+  return "oklch(0.55 0.22 25)" // red
 }
 
 // QWERTY keyboard rows for the heatmap
@@ -61,7 +61,7 @@ const KEYBOARD_ROWS = [
   ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
   ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
   ["z", "x", "c", "v", "b", "n", "m"],
-];
+]
 
 function StatCard({
   icon,
@@ -69,10 +69,10 @@ function StatCard({
   value,
   sub,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub?: string;
+  icon: React.ReactNode
+  label: string
+  value: string | number
+  sub?: string
 }) {
   return (
     <motion.div
@@ -83,24 +83,22 @@ function StatCard({
     >
       <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
-        <span className="text-[11px] font-medium uppercase tracking-widest">
+        <span className="text-[11px] font-medium tracking-widest uppercase">
           {label}
         </span>
       </div>
       <span className="font-mono text-2xl font-bold text-foreground tabular-nums">
         {value}
       </span>
-      {sub && (
-        <span className="text-[11px] text-muted-foreground">{sub}</span>
-      )}
+      {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
     </motion.div>
-  );
+  )
 }
 
 function KeyboardHeatmap({
   keyData,
 }: {
-  keyData: Map<string, { accuracy: number; attempts: number }>;
+  keyData: Map<string, { accuracy: number; attempts: number }>
 }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -108,19 +106,23 @@ function KeyboardHeatmap({
         <div
           key={rowIdx}
           className="flex gap-1.5"
-          style={{ paddingLeft: rowIdx === 1 ? "1rem" : rowIdx === 2 ? "2.5rem" : 0 }}
+          style={{
+            paddingLeft: rowIdx === 1 ? "1rem" : rowIdx === 2 ? "2.5rem" : 0,
+          }}
         >
           {row.map((key) => {
-            const data = keyData.get(key);
-            const acc = data?.accuracy ?? 100;
-            const attempts = data?.attempts ?? 0;
+            const data = keyData.get(key)
+            const acc = data?.accuracy ?? 100
+            const attempts = data?.attempts ?? 0
             return (
               <div
                 key={key}
                 className="group relative flex h-10 w-10 items-center justify-center rounded-md border border-border font-mono text-xs font-semibold uppercase transition-transform hover:scale-110"
                 style={{
-                  backgroundColor: attempts > 0 ? getKeyColor(acc) : "var(--muted)",
-                  color: attempts > 0 && acc < 95 ? "white" : "var(--foreground)",
+                  backgroundColor:
+                    attempts > 0 ? getKeyColor(acc) : "var(--muted)",
+                  color:
+                    attempts > 0 && acc < 95 ? "white" : "var(--foreground)",
                   opacity: attempts > 0 ? 1 : 0.3,
                 }}
               >
@@ -132,57 +134,87 @@ function KeyboardHeatmap({
                   </div>
                 )}
               </div>
-            );
+            )
           })}
         </div>
       ))}
     </div>
-  );
+  )
 }
 
 export default function StatsPage() {
-  const [history, setHistory] = useState<TestHistoryEntry[]>([]);
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [history, setHistory] = useState<TestHistoryEntry[]>([])
+  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">(
+    "30d"
+  )
+  // Snapshot "now" once when data loads — keeps render pure and stable.
+  const [loadedAt, setLoadedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    setHistory(readHistory());
-  }, []);
+    const entries = readHistory()
+    queueMicrotask(() => {
+      setHistory(entries)
+      setLoadedAt(Date.now())
+    })
+  }, [])
 
   const filteredHistory = useMemo(() => {
-    if (timeRange === "all") return history;
-    const now = Date.now();
-    const ms = timeRange === "7d" ? 7 * 86400000 : timeRange === "30d" ? 30 * 86400000 : 90 * 86400000;
-    const cutoff = now - ms;
-    return history.filter((h) => new Date(h.timestamp).getTime() >= cutoff);
-  }, [history, timeRange]);
+    if (timeRange === "all" || loadedAt === null) return history
+    const ms =
+      timeRange === "7d"
+        ? 7 * 86400000
+        : timeRange === "30d"
+          ? 30 * 86400000
+          : 90 * 86400000
+    const cutoff = loadedAt - ms
+    return history.filter((h) => new Date(h.timestamp).getTime() >= cutoff)
+  }, [history, timeRange, loadedAt])
 
-  const dailyData = useMemo(() => aggregateByDay(filteredHistory), [filteredHistory]);
-  const keyAccuracy = useMemo(() => aggregateKeyAccuracy(filteredHistory), [filteredHistory]);
+  const dailyData = useMemo(
+    () => aggregateByDay(filteredHistory),
+    [filteredHistory]
+  )
+  const keyAccuracy = useMemo(
+    () => aggregateKeyAccuracy(filteredHistory),
+    [filteredHistory]
+  )
 
   const keyMap = useMemo(() => {
-    const m = new Map<string, { accuracy: number; attempts: number }>();
+    const m = new Map<string, { accuracy: number; attempts: number }>()
     for (const ka of keyAccuracy) {
-      m.set(ka.key, { accuracy: ka.accuracy, attempts: ka.attempts });
+      m.set(ka.key, { accuracy: ka.accuracy, attempts: ka.attempts })
     }
-    return m;
-  }, [keyAccuracy]);
+    return m
+  }, [keyAccuracy])
 
   // Summary stats
-  const totalTests = filteredHistory.length;
-  const avgWpm = totalTests > 0 ? Math.round(filteredHistory.reduce((s, h) => s + h.wpm, 0) / totalTests) : 0;
-  const bestWpm = totalTests > 0 ? Math.max(...filteredHistory.map((h) => h.wpm)) : 0;
-  const avgAccuracy = totalTests > 0 ? Math.round((filteredHistory.reduce((s, h) => s + h.accuracy, 0) / totalTests) * 10) / 10 : 0;
-  const totalTime = Math.round(filteredHistory.reduce((s, h) => s + h.duration, 0) / 60);
+  const totalTests = filteredHistory.length
+  const avgWpm =
+    totalTests > 0
+      ? Math.round(filteredHistory.reduce((s, h) => s + h.wpm, 0) / totalTests)
+      : 0
+  const bestWpm =
+    totalTests > 0 ? Math.max(...filteredHistory.map((h) => h.wpm)) : 0
+  const avgAccuracy =
+    totalTests > 0
+      ? Math.round(
+          (filteredHistory.reduce((s, h) => s + h.accuracy, 0) / totalTests) *
+            10
+        ) / 10
+      : 0
+  const totalTime = Math.round(
+    filteredHistory.reduce((s, h) => s + h.duration, 0) / 60
+  )
 
   // Worst 5 keys
-  const worstKeys = keyAccuracy.filter((k) => k.attempts >= 5).slice(0, 5);
+  const worstKeys = keyAccuracy.filter((k) => k.attempts >= 5).slice(0, 5)
 
   const handleClear = () => {
     if (confirm("Clear all test history? This cannot be undone.")) {
-      clearHistory();
-      setHistory([]);
+      clearHistory()
+      setHistory([])
     }
-  };
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
@@ -274,7 +306,11 @@ export default function StatsPage() {
             <StatCard
               icon={<IconClock size={14} />}
               label="Time Typed"
-              value={totalTime > 60 ? `${Math.round(totalTime / 60)}h` : `${totalTime}m`}
+              value={
+                totalTime > 60
+                  ? `${Math.round(totalTime / 60)}h`
+                  : `${totalTime}m`
+              }
               sub={`${Math.round(totalTime)} minutes total`}
             />
           </div>
@@ -287,20 +323,26 @@ export default function StatsPage() {
               transition={{ delay: 0.1 }}
               className="mb-8"
             >
-              <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <h2 className="mb-4 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 <IconChartLine size={14} className="mr-1.5 inline" />
                 WPM Trend
               </h2>
               <div className="rounded-lg border border-border bg-muted/10 p-4">
-                <ChartContainer config={wpmChartConfig} className="h-[250px] w-full">
+                <ChartContainer
+                  config={wpmChartConfig}
+                  className="h-[250px] w-full"
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={dailyData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                      />
                       <XAxis
                         dataKey="date"
                         tickFormatter={(d: string) => {
-                          const parts = d.split("-");
-                          return `${parts[1]}/${parts[2]}`;
+                          const parts = d.split("-")
+                          return `${parts[1]}/${parts[2]}`
                         }}
                         stroke="var(--muted-foreground)"
                         fontSize={10}
@@ -343,7 +385,7 @@ export default function StatsPage() {
             transition={{ delay: 0.2 }}
             className="mb-8"
           >
-            <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <h2 className="mb-4 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
               <IconKeyboard size={14} className="mr-1.5 inline" />
               Key Accuracy Heatmap
             </h2>
@@ -351,23 +393,38 @@ export default function StatsPage() {
               <KeyboardHeatmap keyData={keyMap} />
               <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: "oklch(0.55 0.22 25)" }} />
+                  <span
+                    className="inline-block h-3 w-3 rounded"
+                    style={{ backgroundColor: "oklch(0.55 0.22 25)" }}
+                  />
                   &lt;80%
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: "oklch(0.65 0.2 35)" }} />
+                  <span
+                    className="inline-block h-3 w-3 rounded"
+                    style={{ backgroundColor: "oklch(0.65 0.2 35)" }}
+                  />
                   80-89%
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: "oklch(0.72 0.18 75)" }} />
+                  <span
+                    className="inline-block h-3 w-3 rounded"
+                    style={{ backgroundColor: "oklch(0.72 0.18 75)" }}
+                  />
                   90-94%
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: "oklch(0.72 0.18 145)" }} />
+                  <span
+                    className="inline-block h-3 w-3 rounded"
+                    style={{ backgroundColor: "oklch(0.72 0.18 145)" }}
+                  />
                   95-97%
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-3 w-3 rounded" style={{ backgroundColor: "var(--color-primary)" }} />
+                  <span
+                    className="inline-block h-3 w-3 rounded"
+                    style={{ backgroundColor: "var(--color-primary)" }}
+                  />
                   98%+
                 </span>
               </div>
@@ -382,16 +439,28 @@ export default function StatsPage() {
               transition={{ delay: 0.3 }}
               className="mb-8"
             >
-              <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <h2 className="mb-4 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 <IconTarget size={14} className="mr-1.5 inline" />
                 Keys to Practice
               </h2>
               <div className="rounded-lg border border-border bg-muted/10 p-4">
-                <ChartContainer config={keyChartConfig} className="h-[180px] w-full">
+                <ChartContainer
+                  config={keyChartConfig}
+                  className="h-[180px] w-full"
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={worstKeys} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} stroke="var(--muted-foreground)" fontSize={10} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                        horizontal={false}
+                      />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                        stroke="var(--muted-foreground)"
+                        fontSize={10}
+                      />
                       <YAxis
                         dataKey="key"
                         type="category"
@@ -421,19 +490,31 @@ export default function StatsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <h2 className="mb-4 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
               Recent Tests
             </h2>
             <div className="overflow-hidden rounded-lg border border-border">
               <table className="w-full text-left font-mono text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="px-3 py-2.5 font-semibold text-muted-foreground">Date</th>
-                    <th className="px-3 py-2.5 font-semibold text-muted-foreground">Mode</th>
-                    <th className="px-3 py-2.5 font-semibold text-muted-foreground text-right">WPM</th>
-                    <th className="px-3 py-2.5 font-semibold text-muted-foreground text-right">Raw</th>
-                    <th className="px-3 py-2.5 font-semibold text-muted-foreground text-right">Acc</th>
-                    <th className="hidden px-3 py-2.5 font-semibold text-muted-foreground text-right md:table-cell">Duration</th>
+                    <th className="px-3 py-2.5 font-semibold text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="px-3 py-2.5 font-semibold text-muted-foreground">
+                      Mode
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-muted-foreground">
+                      WPM
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-muted-foreground">
+                      Raw
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-muted-foreground">
+                      Acc
+                    </th>
+                    <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground md:table-cell">
+                      Duration
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -461,9 +542,17 @@ export default function StatsPage() {
                       <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">
                         {entry.raw}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums" style={{
-                        color: entry.accuracy >= 95 ? "var(--color-primary)" : entry.accuracy >= 85 ? "oklch(0.72 0.18 75)" : "oklch(0.55 0.22 25)",
-                      }}>
+                      <td
+                        className="px-3 py-2 text-right tabular-nums"
+                        style={{
+                          color:
+                            entry.accuracy >= 95
+                              ? "var(--color-primary)"
+                              : entry.accuracy >= 85
+                                ? "oklch(0.72 0.18 75)"
+                                : "oklch(0.55 0.22 25)",
+                        }}
+                      >
                         {entry.accuracy}%
                       </td>
                       <td className="hidden px-3 py-2 text-right text-muted-foreground tabular-nums md:table-cell">
@@ -478,5 +567,5 @@ export default function StatsPage() {
         </>
       )}
     </div>
-  );
+  )
 }
