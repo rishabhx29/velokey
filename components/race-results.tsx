@@ -31,7 +31,7 @@ export function RaceResults({ connection }: RaceResultsProps) {
       const stats = {
         wpm: myEntry.wpm,
         accuracy: myEntry.accuracy,
-        raw: myEntry.wpm, // Fallback, real raw was sent but we don't broadcast it to save bytes
+        raw: myEntry.raw, // now broadcast by the server from the finish message
         correctChars: myEntry.correctChars,
         incorrectChars: myEntry.incorrectChars,
         extraChars: 0,
@@ -39,7 +39,7 @@ export function RaceResults({ connection }: RaceResultsProps) {
         mode: `race_${roomConfig.mode}`,
         duration: myEntry.elapsedSeconds,
         wordCount: roomConfig.wordOption || 0,
-        language: "english",
+        language: `race_${roomConfig.difficulty}`,
         difficulty: roomConfig.difficulty,
         charErrors: {},
         charAttempts: {},
@@ -168,8 +168,7 @@ export function RaceResults({ connection }: RaceResultsProps) {
                 {/* Raw WPM (Hidden on small screens) */}
                 <div className="hidden flex-col items-end justify-center sm:flex">
                   <span className="font-mono text-base leading-none font-bold text-muted-foreground">
-                    {Math.round(entry.wpm)}{" "}
-                    {/* Server only holds best WPM for now, proxying raw to WPM visually */}
+                    {Math.round(entry.raw)}
                   </span>
                 </div>
 

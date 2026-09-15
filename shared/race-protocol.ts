@@ -62,6 +62,7 @@ export interface LeaderboardEntry {
   player: Player
   placement: number // 1, 2, 3, ...
   wpm: number
+  raw: number
   accuracy: number
   consistency: number
   elapsedSeconds: number
@@ -98,6 +99,8 @@ export interface ProgressMsg {
 export interface FinishMsg {
   type: "finish"
   wpm: number
+  /** Raw WPM (all typed chars incl. errors ÷ 5 ÷ minutes) — broadcast back on the leaderboard. */
+  raw: number
   accuracy: number
   consistency: number
   elapsedSeconds: number

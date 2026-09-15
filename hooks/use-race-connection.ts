@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import PartySocket from "partysocket"
+import { toast } from "sonner"
 import type {
   ServerMessage,
   Player,
@@ -54,6 +55,7 @@ export interface UseRaceConnectionReturn {
   ) => void
   sendFinish: (stats: {
     wpm: number
+    raw: number
     accuracy: number
     consistency: number
     elapsedSeconds: number
@@ -98,6 +100,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   const socketRef = useRef<PartySocket | null>(null)
   const lastProgressRef = useRef<number>(0)
   const sessionIdRef = useRef("")
+  const countdownClearRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isHost = myPlayerId === hostId
 
@@ -164,8 +167,14 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
         case "countdown":
           setCountdown(msg.value)
           if (msg.value <= 0) {
-            // Countdown finished, clear after a brief delay
-            setTimeout(() => setCountdown(null), 600)
+            // Countdown finished, clear after a brief delay. Tracked so the
+            // timer cannot fire after unmount (leaked setTimeout).
+            if (countdownClearRef.current)
+              clearTimeout(countdownClearRef.current)
+            countdownClearRef.current = setTimeout(() => {
+              countdownClearRef.current = null
+              setCountdown(null)
+            }, 600)
           }
           break
 
@@ -186,6 +195,10 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
 
         case "error":
           setError(msg.message)
+          // Errors can arrive mid-race (room full on rejoin, rejected result,
+          // min players) when the connecting-screen banner is not rendered —
+          // surface them as toasts so they are never silently swallowed.
+          toast.error(msg.message)
           break
 
         case "player_joined":
@@ -205,6 +218,10 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
     })
 
     return () => {
+      if (countdownClearRef.current) {
+        clearTimeout(countdownClearRef.current)
+        countdownClearRef.current = null
+      }
       socket.close()
       socketRef.current = null
     }
@@ -231,6 +248,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   const sendFinish = useCallback(
     (stats: {
       wpm: number
+      raw: number
       accuracy: number
       consistency: number
       elapsedSeconds: number

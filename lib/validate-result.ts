@@ -1,4 +1,4 @@
-import type { ResultStats, WpmSnapshot } from "@/components/results-screen"
+import type { ResultStats } from "@/components/results-screen"
 import {
   validateResultStats,
   type InvalidReason,
