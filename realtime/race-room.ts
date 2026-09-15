@@ -21,6 +21,9 @@ import {
   DISCONNECT_GRACE_MS,
   MATCHMAKER_ROOM_ID,
   PROGRESS_BROADCAST_MS,
+  MATCH_BATCH_SIZE,
+  MATCH_BATCH_WINDOW_MS,
+  MATCH_BATCH_MIN_SIZE,
 } from "../shared/race-protocol"
 import { validateResultStats } from "../shared/result-validation"
 
@@ -468,12 +471,25 @@ interface MatchQueueEntry {
   joinedAt: number
 }
 
+/** A batch of queued players waiting to be placed into a shared room. */
+interface MatchBatch {
+  config: MatchQueueEntry["config"]
+  entries: MatchQueueEntry[]
+  /** Earliest time the batch may be flushed. */
+  flushAt: number
+  timer: ReturnType<typeof setTimeout>
+}
+
 // ── Server ───────────────────────────────────────────────────────────────────
 
 export default class RaceRoom implements Party.Server {
   state: RoomState
   private readonly isMatchmaker: boolean
   private matchQueue = new Map<string, MatchQueueEntry>()
+  /** Quick-match batches keyed by config signature. */
+  private matchBatches = new Map<string, MatchBatch>()
+  /** Serialized last progress payload — dirty-flag for S3 broadcast skip. */
+  private lastProgressSnapshot = ""
 
   constructor(readonly room: Party.Room) {
     this.isMatchmaker = room.id === MATCHMAKER_ROOM_ID
@@ -516,6 +532,17 @@ export default class RaceRoom implements Party.Server {
     }
 
     if (req.method === "POST") {
+      // S8 hardening: when an allowlist is configured, only accept room
+      // configuration from those origins. PartyKit env vars support a
+      // comma-separated list, e.g. ALLOWED_ORIGINS="https://velokey.app".
+      const allowed = String(this.room.env.ALLOWED_ORIGINS ?? "")
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean)
+      const origin = req.headers.get("origin")
+      if (allowed.length > 0 && (!origin || !allowed.includes(origin))) {
+        return new Response("Forbidden", { status: 403 })
+      }
       try {
         const config = (await req.json()) as Partial<RoomConfig>
         if (config.mode) this.state.config.mode = config.mode
@@ -755,6 +782,7 @@ export default class RaceRoom implements Party.Server {
     // Reset progress
     this.state.progress.clear()
     this.state.finishData.clear()
+    this.lastProgressSnapshot = "" // force a fresh broadcast for the new race
     for (const [id] of this.state.players) {
       this.state.progress.set(id, {
         playerId: id,
@@ -1069,26 +1097,116 @@ export default class RaceRoom implements Party.Server {
       config: msg.config,
       joinedAt: Date.now(),
     }
-    const match = Array.from(this.matchQueue.values()).find((candidate) =>
-      this.sameMatchConfig(candidate.config, entry.config)
-    )
-    if (!match) {
-      this.matchQueue.set(sender.id, entry)
-      this.broadcastQueueStatus()
+
+    // Batch matchmaking: instead of pairing the first compatible queued
+    // player 1:1 (one Durable Object per pair), collect players into a
+    // batch and place them together in a single room once the batch is
+    // full or the window expires. Fuller rooms, fewer rooms.
+    const key = this.matchConfigKey(entry.config)
+    let batch = this.matchBatches.get(key)
+    if (!batch) {
+      // Seed the new batch with anyone left waiting in the queue from a
+      // previous under-minimum flush so they are not orphaned.
+      const waiting = Array.from(this.matchQueue.values()).filter(
+        (e) => this.matchConfigKey(e.config) === key
+      )
+      for (const e of waiting) this.matchQueue.delete(e.connectionId)
+      const timer = setTimeout(
+        () => this.flushMatchBatch(key),
+        MATCH_BATCH_WINDOW_MS
+      )
+      batch = {
+        config: entry.config,
+        entries: waiting,
+        flushAt: Date.now() + MATCH_BATCH_WINDOW_MS,
+        timer,
+      }
+      this.matchBatches.set(key, batch)
+    }
+    batch.entries.push(entry)
+
+    if (batch.entries.length >= MATCH_BATCH_SIZE) {
+      clearTimeout(batch.timer)
+      this.placeBatch(key)
       return
     }
 
-    this.matchQueue.delete(match.connectionId)
-    const roomCode = this.generateMatchRoomCode()
-    const config: RoomConfig = { ...entry.config, isQuickMatch: true }
-    this.send(match.connection, { type: "matched", roomCode, config })
-    this.send(sender, { type: "matched", roomCode, config })
+    this.broadcastQueueStatus()
+  }
+
+  private matchConfigKey(config: MatchQueueEntry["config"]): string {
+    return `${config.mode}:${config.wordOption}:${config.timeOption}:${config.difficulty}`
+  }
+
+  /** Flush a batch whose window expired, placing whatever players it holds. */
+  private flushMatchBatch(key: string) {
+    const batch = this.matchBatches.get(key)
+    if (!batch) return
+    this.matchBatches.delete(key)
+    if (batch.entries.length >= MATCH_BATCH_MIN_SIZE) {
+      this.placeEntries(batch.entries, batch.config)
+    } else {
+      // Too few players to start a fair race: return them to the queue so
+      // the next compatible join can pair with them.
+      for (const entry of batch.entries) {
+        if (entry.connection.readyState === 1)
+          this.matchQueue.set(entry.connectionId, entry)
+      }
+      this.broadcastQueueStatus()
+    }
+  }
+
+  /** Remove a full batch from tracking and place its players in one room. */
+  private placeBatch(key: string) {
+    const batch = this.matchBatches.get(key)
+    if (!batch) return
+    this.matchBatches.delete(key)
+    this.placeEntries(batch.entries, batch.config)
+  }
+
+  /**
+   * Assign a room code and notify every entry in the batch. Codes are
+   * probed for emptiness first (S7) so a colliding code can never drop
+   * players into a stranger's live room.
+   */
+  private async placeEntries(
+    entries: MatchQueueEntry[],
+    config: MatchQueueEntry["config"]
+  ) {
+    if (entries.length === 0) return
+    const roomCode = await this.generateMatchRoomCode()
+    const roomConfig: RoomConfig = { ...config, isQuickMatch: true }
+    for (const entry of entries) {
+      if (entry.connection.readyState === 1) {
+        this.send(entry.connection, {
+          type: "matched",
+          roomCode,
+          config: roomConfig,
+          players: entries.length,
+        })
+      }
+    }
     this.broadcastQueueStatus()
   }
 
   private removeFromMatchQueue(connectionId: string) {
-    if (!this.matchQueue.delete(connectionId)) return
-    this.broadcastQueueStatus()
+    const wasQueued = this.matchQueue.delete(connectionId)
+    // Also drop the player from any pending match batch they sit in.
+    let wasBatched = false
+    for (const [key, batch] of this.matchBatches) {
+      const before = batch.entries.length
+      batch.entries = batch.entries.filter(
+        (e) => e.connectionId !== connectionId
+      )
+      if (batch.entries.length !== before) wasBatched = true
+      // A batch that fell below the minimum will be flushed by its timer
+      // into the queue; nothing else to do here.
+      if (batch.entries.length === 0) {
+        clearTimeout(batch.timer)
+        this.matchBatches.delete(key)
+      }
+    }
+    if (wasQueued || wasBatched) this.broadcastQueueStatus()
   }
 
   private broadcastQueueStatus() {
@@ -1102,33 +1220,54 @@ export default class RaceRoom implements Party.Server {
         waitMs: now - entry.joinedAt,
       })
     }
-  }
-
-  private sameMatchConfig(
-    a: MatchQueueEntry["config"],
-    b: MatchQueueEntry["config"]
-  ) {
-    return (
-      a.mode === b.mode &&
-      a.wordOption === b.wordOption &&
-      a.timeOption === b.timeOption &&
-      a.difficulty === b.difficulty
-    )
-  }
-
-  private generateMatchRoomCode() {
-    const characters = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-    let suffix = ""
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-      const bytes = new Uint8Array(4)
-      crypto.getRandomValues(bytes)
-      for (let i = 0; i < 4; i += 1)
-        suffix += characters[bytes[i] % characters.length]
-    } else {
-      for (let index = 0; index < 4; index += 1)
-        suffix += characters[Math.floor(Math.random() * characters.length)]
+    // Batched players also want progress feedback while their window runs.
+    for (const batch of this.matchBatches.values()) {
+      for (const entry of batch.entries) {
+        position += 1
+        this.send(entry.connection, {
+          type: "queue_status",
+          position,
+          waitMs: now - entry.joinedAt,
+        })
+      }
     }
-    return `VELO-${suffix}`
+  }
+
+  /**
+   * Generate a room code, verifying with an HTTP probe that the target room
+   * does not already hold players (S7 collision guard). Retries a few times
+   * before settling on the last candidate.
+   */
+  private async generateMatchRoomCode(): Promise<string> {
+    const characters = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    const randomSuffix = () => {
+      let suffix = ""
+      if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+        const bytes = new Uint8Array(4)
+        crypto.getRandomValues(bytes)
+        for (let i = 0; i < 4; i += 1)
+          suffix += characters[bytes[i] % characters.length]
+      } else {
+        for (let index = 0; index < 4; index += 1)
+          suffix += characters[Math.floor(Math.random() * characters.length)]
+      }
+      return suffix
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = `VELO-${randomSuffix()}`
+      if (candidate === this.room.id) continue // that's us (matchmaker)
+      try {
+        const stub = this.room.context.parties.main.get(candidate)
+        const res = await stub.fetch("/")
+        const info = (await res.json()) as { playerCount?: number }
+        if ((info.playerCount ?? 0) === 0) return candidate
+      } catch {
+        // Probe failed — assume the room is unusable and retry.
+        continue
+      }
+    }
+    return `VELO-${randomSuffix()}`
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -1178,6 +1317,11 @@ export default class RaceRoom implements Party.Server {
     if (this.state.progressBroadcastTimer)
       clearTimeout(this.state.progressBroadcastTimer)
     this.state.progressBroadcastTimer = null
+    // S3: skip the broadcast entirely when nothing visibly changed since
+    // the last one. Idle observers no longer receive 8 msgs/sec of noise.
+    const snapshot = JSON.stringify(Array.from(this.state.progress.values()))
+    if (snapshot === this.lastProgressSnapshot) return
+    this.lastProgressSnapshot = snapshot
     this.broadcast({
       type: "progress_broadcast",
       progress: Array.from(this.state.progress.values()),
@@ -1197,6 +1341,8 @@ export default class RaceRoom implements Party.Server {
       this.state.progress.clear()
       this.state.finishData.clear()
       this.matchQueue.clear()
+      for (const batch of this.matchBatches.values()) clearTimeout(batch.timer)
+      this.matchBatches.clear()
       if (this.state.countdownTimer) {
         clearInterval(this.state.countdownTimer)
         this.state.countdownTimer = null

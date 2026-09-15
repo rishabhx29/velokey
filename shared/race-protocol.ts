@@ -14,9 +14,14 @@ export const COUNTDOWN_SECONDS = 3
 export const ROOM_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 export const QUICK_MATCH_WAIT_MS = 15 * 1000 // 15 seconds before auto-start
 export const PROGRESS_THROTTLE_MS = 500
-export const PROGRESS_BROADCAST_MS = 125
+export const PROGRESS_BROADCAST_MS = 250
 export const DISCONNECT_GRACE_MS = 10 * 1000
 export const MATCHMAKER_ROOM_ID = "__velokey_matchmaker__"
+// Quick-match batching: instead of pairing players 1:1 into separate rooms,
+// the matchmaker collects players into batches to form fuller rooms.
+export const MATCH_BATCH_SIZE = 8 // target players per quick-match room (MAX_PLAYERS)
+export const MATCH_BATCH_WINDOW_MS = 3 * 1000 // wait up to this long to fill a batch
+export const MATCH_BATCH_MIN_SIZE = 2 // start a room once at least this many players are batched
 
 // ── Player ───────────────────────────────────────────────────────────────────
 
@@ -33,8 +38,8 @@ export interface Player {
 
 export interface RoomConfig {
   mode: RaceMode
-  wordOption: number    // e.g. 25, 50, 100 (used when mode === "words")
-  timeOption: number    // e.g. 15, 30, 60 (used when mode === "time")
+  wordOption: number // e.g. 25, 50, 100 (used when mode === "words")
+  timeOption: number // e.g. 15, 30, 60 (used when mode === "time")
   difficulty: "easy" | "medium" | "hard"
   isQuickMatch: boolean
 }
@@ -193,6 +198,8 @@ export interface MatchedMsg {
   type: "matched"
   roomCode: string
   config: RoomConfig
+  /** Number of players placed into this room by the matchmaker. */
+  players: number
 }
 
 export type ServerMessage =
