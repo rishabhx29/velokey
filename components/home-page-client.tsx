@@ -123,7 +123,7 @@ export default function Page() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
+            className="pointer-events-none fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.85 }}

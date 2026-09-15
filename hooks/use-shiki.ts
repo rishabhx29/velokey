@@ -1,72 +1,61 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import type { HighlighterCore } from "shiki";
+import { useEffect, useRef, useState } from "react"
+import type { HighlighterCore } from "shiki"
 
 // Only list languages whose shiki name differs from the internal code name.
 const SHIKI_NAME_OVERRIDES: Record<string, string> = {
   shell: "shellscript",
-};
-
-function toShikiLang(lang: string): string {
-  return SHIKI_NAME_OVERRIDES[lang] ?? lang;
 }
 
-let highlighterPromise: Promise<HighlighterCore> | null = null;
-const loadedLangs = new Set<string>();
+function toShikiLang(lang: string): string {
+  return SHIKI_NAME_OVERRIDES[lang] ?? lang
+}
+
+let highlighterPromise: Promise<HighlighterCore> | null = null
+const loadedLangs = new Set<string>()
 
 async function getHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = import("shiki").then((m) =>
-      m.createHighlighter({ themes: ["vitesse-dark", "vitesse-light"], langs: [] }),
-    );
+      m.createHighlighter({
+        themes: ["vitesse-dark", "vitesse-light"],
+        langs: [],
+      })
+    )
   }
-  return highlighterPromise;
+  return highlighterPromise
 }
 
 async function ensureLang(lang: string) {
-  const shikiLang = toShikiLang(lang);
-  if (loadedLangs.has(shikiLang)) return;
-  const h = await getHighlighter();
-  await h.loadLanguage(shikiLang as Parameters<typeof h.loadLanguage>[0]);
-  loadedLangs.add(shikiLang);
+  const shikiLang = toShikiLang(lang)
+  if (loadedLangs.has(shikiLang)) return
+  const h = await getHighlighter()
+  await h.loadLanguage(shikiLang as Parameters<typeof h.loadLanguage>[0])
+  loadedLangs.add(shikiLang)
 }
 
-/** Returns shiki-highlighted HTML for a full code string. */
-export function useHighlightedHtml(
-  code: string,
-  lang: string,
-  enabled: boolean,
-  theme: string,
-): string {
-  const [html, setHtml] = useState<string>("");
-  const prevKey = useRef("");
-
-  useEffect(() => {
-    if (!enabled || !code || !lang) {
-      prevKey.current = "";
-      queueMicrotask(() => setHtml(""));
-      return;
+/**
+ * Reconstruct the exact character offset of each word inside the raw source.
+ * Words come from splitting the source on whitespace, so this walks the
+ * source once, consuming one word at a time. Unlike `indexOf` scanning this
+ * handles repeated tokens (e.g. `const` appearing many times) correctly.
+ */
+export function mapWordsToOffsets(rawCode: string, words: string[]): number[] {
+  const offsets: number[] = []
+  let pos = 0
+  for (const word of words) {
+    // Skip whitespace between words (any mix of spaces/tabs/newlines)
+    while (pos < rawCode.length && /\s/.test(rawCode[pos])) pos++
+    if (rawCode.startsWith(word, pos)) {
+      offsets.push(pos)
+      pos += word.length
+    } else {
+      // Unexpected mismatch (e.g. the source changed under us) — mark unknown
+      offsets.push(-1)
     }
-
-    const key = `${lang}:${theme}:${code}`;
-    if (key === prevKey.current) return;
-    prevKey.current = key;
-
-    let cancelled = false;
-    (async () => {
-      await ensureLang(lang);
-      const h = await getHighlighter();
-      const shikiLang = toShikiLang(lang);
-      const shikiTheme = theme === "dark" ? "vitesse-dark" : "vitesse-light";
-      const result = h.codeToHtml(code, { lang: shikiLang, theme: shikiTheme });
-      if (!cancelled) setHtml(result);
-    })();
-
-    return () => { cancelled = true; };
-  }, [code, lang, enabled, theme]);
-
-  return html;
+  }
+  return offsets
 }
 
 /** Tokenizes words and returns per-word arrays of per-character hex colors.
@@ -78,84 +67,88 @@ export function useShikiTokens(
   lang: string,
   enabled: boolean,
   theme: string,
-  rawCode?: string,
+  rawCode?: string
 ): (string | undefined)[][] {
-  const [colorMap, setColorMap] = useState<(string | undefined)[][]>([]);
-  const prevKey = useRef("");
+  const [colorMap, setColorMap] = useState<(string | undefined)[][]>([])
+  const prevKey = useRef("")
 
   useEffect(() => {
     if (!enabled || words.length === 0 || !lang) {
-      prevKey.current = "";
-      queueMicrotask(() => setColorMap([]));
-      return;
+      prevKey.current = ""
+      queueMicrotask(() => setColorMap([]))
+      return
     }
 
-    const codeToHighlight = rawCode ?? words.join("\n");
-    const wordsKey = words.join("|");
-    const key = `${lang}:${theme}:${codeToHighlight}:${wordsKey}`;
-    if (key === prevKey.current) return;
-    prevKey.current = key;
+    const codeToHighlight = rawCode ?? words.join("\n")
+    const wordsKey = words.join("|")
+    const key = `${lang}:${theme}:${codeToHighlight}:${wordsKey}`
+    if (key === prevKey.current) return
+    prevKey.current = key
 
-    let cancelled = false;
-    (async () => {
-      await ensureLang(lang);
-      const h = await getHighlighter();
-      const shikiLang = toShikiLang(lang);
-      const shikiTheme = theme === "dark" ? "vitesse-dark" : "vitesse-light";
+    let cancelled = false
+    ;(async () => {
+      await ensureLang(lang)
+      const h = await getHighlighter()
+      const shikiLang = toShikiLang(lang)
+      const shikiTheme = theme === "dark" ? "vitesse-dark" : "vitesse-light"
 
-      const { tokens } = h.codeToTokens(codeToHighlight, { lang: shikiLang, theme: shikiTheme });
+      const { tokens } = h.codeToTokens(codeToHighlight, {
+        lang: shikiLang,
+        theme: shikiTheme,
+      })
 
       // Build a flat char→color array from the full source
-      const charColors: (string | undefined)[] = [];
+      const charColors: (string | undefined)[] = []
       for (const line of tokens) {
         for (const token of line) {
           for (const ch of token.content) {
-            charColors.push(ch === "\n" ? undefined : token.color);
+            charColors.push(ch === "\n" ? undefined : token.color)
           }
         }
         // newline between lines
-        charColors.push(undefined);
+        charColors.push(undefined)
       }
 
       if (rawCode) {
-        // Map each word back to its position in the raw source by scanning for it
-        const result: (string | undefined)[][] = [];
-        let searchFrom = 0;
-        for (const word of words) {
-          const colors: (string | undefined)[] = [];
-          // Find this word's start position in the raw source
-          const idx = rawCode.indexOf(word, searchFrom);
+        // Deterministic walk of the raw source so repeated words keep the
+        // colors of their own occurrences.
+        const offsets = mapWordsToOffsets(rawCode, words)
+        const result: (string | undefined)[][] = []
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i]
+          const idx = offsets[i]
+          const colors: (string | undefined)[] = []
           if (idx === -1) {
-            // Fallback: push undefined colors
-            for (let i = 0; i < word.length; i++) colors.push(undefined);
+            for (let c = 0; c < word.length; c++) colors.push(undefined)
           } else {
-            for (let i = 0; i < word.length; i++) {
-              colors.push(charColors[idx + i] ?? undefined);
+            for (let c = 0; c < word.length; c++) {
+              colors.push(charColors[idx + c] ?? undefined)
             }
-            searchFrom = idx + word.length;
           }
-          result.push(colors);
+          result.push(colors)
         }
-        if (!cancelled) setColorMap(result);
+        if (!cancelled) setColorMap(result)
       } else {
         // Original word-per-line mapping
-        let pos = 0;
-        const result: (string | undefined)[][] = [];
+        let pos = 0
+        const result: (string | undefined)[][] = []
         for (const word of words) {
-          const colors: (string | undefined)[] = [];
+          const colors: (string | undefined)[] = []
           for (let i = 0; i < word.length; i++) {
-            colors.push(charColors[pos] ?? undefined);
-            pos++;
+            colors.push(charColors[pos] ?? undefined)
+            pos++
           }
-          result.push(colors);
-          if (pos < charColors.length && charColors[pos] === undefined) pos++;
+          result.push(colors)
+          if (pos < charColors.length && charColors[pos] === undefined) pos++
         }
-        if (!cancelled) setColorMap(result);
+        if (!cancelled) setColorMap(result)
       }
-    })();
+    })()
 
-    return () => { cancelled = true; };
-  }, [words, lang, enabled, theme, rawCode]);
+    return () => {
+      cancelled = true
+    }
+  }, [words, lang, enabled, theme, rawCode])
 
-  return colorMap;
+  return colorMap
 }

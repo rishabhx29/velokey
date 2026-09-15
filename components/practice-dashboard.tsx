@@ -1,6 +1,6 @@
-"use client";
+"use client"
 
-import { useMemo, useState } from "react";
+import { useMemo, useState } from "react"
 import {
   LineChart,
   Line,
@@ -9,14 +9,14 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-} from "recharts";
-import { IconTargetArrow, IconTrash } from "@tabler/icons-react";
+} from "recharts"
+import { IconTargetArrow, IconTrash } from "@tabler/icons-react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,37 +27,37 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import {
   ChartContainer,
   ChartTooltip,
   type ChartConfig,
-} from "@/components/ui/chart";
+} from "@/components/ui/chart"
 import {
   getMistakeStats,
   getMistakeHistory,
   getProblemWords,
   buildHistoryPracticeWords,
   clearMistakes,
-} from "@/lib/mistakes";
+} from "@/lib/mistakes"
 
 const trendConfig: ChartConfig = {
   mastery: { label: "Mastery", color: "var(--color-primary)" },
-};
+}
 const wordsConfig: ChartConfig = {
   misses: { label: "Misses", color: "var(--color-primary)" },
-};
+}
 
 export function PracticeDashboard({
   open,
   onOpenChange,
   onStartPractice,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onStartPractice: (words: string[]) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onStartPractice: (words: string[]) => void
 }) {
-  const [version, setVersion] = useState(0);
+  const [version, setVersion] = useState(0)
 
   const { stats, trend, topWords } = useMemo(() => {
     if (!open) {
@@ -65,30 +65,32 @@ export function PracticeDashboard({
         stats: { count: 0, mastery: 100, attempts: 0, misses: 0 },
         trend: [] as { i: number; mastery: number }[],
         topWords: [] as { word: string; misses: number }[],
-      };
+      }
     }
-    const history = getMistakeHistory();
+    const history = getMistakeHistory()
     return {
       stats: getMistakeStats(),
       trend: history.map((s, i) => ({ i: i + 1, mastery: s.mastery })),
       topWords: getProblemWords()
         .slice(0, 8)
         .map((e) => ({ word: e.word, misses: e.misses })),
-    };
-  }, [open, version]);
+    }
+    // version is an intentional refresh trigger after resetting the store.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, version])
 
-  const hasData = stats.count > 0;
+  const hasData = stats.count > 0
 
   function handleStart() {
-    const words = buildHistoryPracticeWords();
-    if (words.length === 0) return;
-    onOpenChange(false);
-    onStartPractice(words);
+    const words = buildHistoryPracticeWords()
+    if (words.length === 0) return
+    onOpenChange(false)
+    onStartPractice(words)
   }
 
   function handleReset() {
-    clearMistakes();
-    setVersion((v) => v + 1);
+    clearMistakes()
+    setVersion((v) => v + 1)
   }
 
   return (
@@ -103,10 +105,12 @@ export function PracticeDashboard({
 
         {!hasData ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <p className="text-sm text-muted-foreground">No tracked mistakes yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No tracked mistakes yet.
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground/60">
-              Finish a few tests and the words you miss or type slowly will show up
-              here to practice.
+              Finish a few tests and the words you miss or type slowly will show
+              up here to practice.
             </p>
           </div>
         ) : (
@@ -121,15 +125,41 @@ export function PracticeDashboard({
 
             {/* Mastery trend */}
             <div className="flex flex-col gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+              <span className="text-[10px] tracking-widest text-muted-foreground/50 uppercase">
                 Mastery over time
               </span>
               {trend.length > 1 ? (
                 <ChartContainer config={trendConfig} className="h-40 w-full">
-                  <LineChart data={trend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.06} />
-                    <XAxis dataKey="i" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "currentColor", opacity: 0.35 }} />
-                    <YAxis domain={[0, 100]} width={32} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "currentColor", opacity: 0.35 }} />
+                  <LineChart
+                    data={trend}
+                    margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="currentColor"
+                      strokeOpacity={0.06}
+                    />
+                    <XAxis
+                      dataKey="i"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{
+                        fontSize: 10,
+                        fill: "currentColor",
+                        opacity: 0.35,
+                      }}
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      width={32}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{
+                        fontSize: 10,
+                        fill: "currentColor",
+                        opacity: 0.35,
+                      }}
+                    />
                     <ChartTooltip
                       content={({ active, payload }) =>
                         active && payload?.length ? (
@@ -158,14 +188,35 @@ export function PracticeDashboard({
 
             {/* Top problem words */}
             <div className="flex flex-col gap-2">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50">
+              <span className="text-[10px] tracking-widest text-muted-foreground/50 uppercase">
                 Top problem words
               </span>
               <ChartContainer config={wordsConfig} className="h-48 w-full">
-                <BarChart data={topWords} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
-                  <CartesianGrid horizontal={false} stroke="currentColor" strokeOpacity={0.06} />
-                  <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "currentColor", opacity: 0.35 }} />
-                  <YAxis type="category" dataKey="word" width={90} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "currentColor", opacity: 0.6 }} />
+                <BarChart
+                  data={topWords}
+                  layout="vertical"
+                  margin={{ top: 0, right: 12, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    horizontal={false}
+                    stroke="currentColor"
+                    strokeOpacity={0.06}
+                  />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: "currentColor", opacity: 0.35 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="word"
+                    width={90}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fill: "currentColor", opacity: 0.6 }}
+                  />
                   <ChartTooltip
                     content={({ active, payload }) =>
                       active && payload?.length ? (
@@ -175,7 +226,12 @@ export function PracticeDashboard({
                       ) : null
                     }
                   />
-                  <Bar dataKey="misses" fill="var(--color-primary)" radius={[0, 3, 3, 0]} isAnimationActive={false} />
+                  <Bar
+                    dataKey="misses"
+                    fill="var(--color-primary)"
+                    radius={[0, 3, 3, 0]}
+                    isAnimationActive={false}
+                  />
                 </BarChart>
               </ChartContainer>
             </div>
@@ -204,12 +260,15 @@ export function PracticeDashboard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Reset practice data?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete all tracked mistakes and mastery history. This action cannot be undone.
+                      This will permanently delete all tracked mistakes and
+                      mastery history. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReset}>Reset</AlertDialogAction>
+                    <AlertDialogAction onClick={handleReset}>
+                      Reset
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -218,14 +277,18 @@ export function PracticeDashboard({
         )}
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-2xl font-bold text-primary tabular-nums">{value}</span>
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50">{label}</span>
+      <span className="font-mono text-2xl font-bold text-primary tabular-nums">
+        {value}
+      </span>
+      <span className="text-[10px] tracking-widest text-muted-foreground/50 uppercase">
+        {label}
+      </span>
     </div>
-  );
+  )
 }

@@ -1,7 +1,11 @@
-'use client';
+"use client"
 
-import { cn } from "@/lib/utils";
-import { getKeyboardLayout, QWERTY_LAYOUT, type KeyboardLayout } from "@/lib/keyboard-layouts";
+import { cn } from "@/lib/utils"
+import {
+  getKeyboardLayout,
+  QWERTY_LAYOUT,
+  type KeyboardLayout,
+} from "@/lib/keyboard-layouts"
 import {
   IconArrowNarrowLeft,
   IconBrightnessDown,
@@ -23,7 +27,7 @@ import {
   IconVolume,
   IconVolume2,
   IconVolume3,
-} from "@tabler/icons-react";
+} from "@tabler/icons-react"
 import {
   createContext,
   useCallback,
@@ -35,47 +39,48 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
-} from "react";
-import { flushSync } from "react-dom";
-import { useWebHaptics } from "web-haptics/react";
-import { toast } from "sonner";
+} from "react"
+import { flushSync } from "react-dom"
+import { useWebHaptics } from "web-haptics/react"
+import { toast } from "sonner"
 
 const KEYCAP_FONT_FAMILY =
-  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
+  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif'
 
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
-export type KeyboardEventSource = "physical" | "pointer";
-export type KeyboardEventPhase = "down" | "up";
-export type KeyboardThemeName = "classic" | "mint" | "royal" | "dolch" | "sand" | "scarlet";
+export type KeyboardEventSource = "physical" | "pointer"
+export type KeyboardEventPhase = "down" | "up"
+export type KeyboardThemeName =
+  "classic" | "mint" | "royal" | "dolch" | "sand" | "scarlet"
 
 export interface KeyboardInteractionEvent {
-  code: string;
-  phase: KeyboardEventPhase;
-  source: KeyboardEventSource;
+  code: string
+  phase: KeyboardEventPhase
+  source: KeyboardEventSource
 }
 
 export interface KeyboardProps {
-  className?: string;
-  theme?: KeyboardThemeName;
-  enableHaptics?: boolean;
-  enableSound?: boolean;
-  soundUrl?: string;
+  className?: string
+  theme?: KeyboardThemeName
+  enableHaptics?: boolean
+  enableSound?: boolean
+  soundUrl?: string
   /** Optional mechvibes-style config.json URL; when present, its defines override the built-in offsets */
-  soundConfigUrl?: string;
-  onKeyEvent?: (event: KeyboardInteractionEvent) => void;
+  soundConfigUrl?: string
+  onKeyEvent?: (event: KeyboardInteractionEvent) => void
   /** Keep key-event listeners active even when the keyboard is not intersecting the viewport */
-  forceActive?: boolean;
+  forceActive?: boolean
   /** When false, physical key presses are ignored (use when the typing area is not focused) */
-  physicalKeysEnabled?: boolean;
+  physicalKeysEnabled?: boolean
   /** Language code to determine key labels (e.g. "english", "french", "russian") */
-  language?: string;
+  language?: string
   /** Keyboard layout variant: normal, split, ortho, compact */
-  variant?: string;
+  variant?: string
   /** Callback fired when audio files start or stop loading */
-  onAudioLoadingChange?: (isLoading: boolean) => void;
+  onAudioLoadingChange?: (isLoading: boolean) => void
 }
 
 export function Keyboard({
@@ -92,8 +97,8 @@ export function Keyboard({
   variant = "normal",
   onAudioLoadingChange,
 }: KeyboardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const layout = useMemo(() => getKeyboardLayout(language), [language]);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const layout = useMemo(() => getKeyboardLayout(language), [language])
 
   return (
     <KeyboardProvider
@@ -113,38 +118,36 @@ export function Keyboard({
       <div
         ref={containerRef}
         className={cn(
-          "inline-block [-webkit-text-size-adjust:100%] [text-size-adjust:100%] [zoom:0.55] sm:[zoom:0.7] md:[zoom:0.65] lg:[zoom:0.85] xl:[zoom:1.15]",
+          "inline-block [zoom:0.55] [-webkit-text-size-adjust:100%] [text-size-adjust:100%] sm:[zoom:0.7] md:[zoom:0.65] lg:[zoom:0.85] xl:[zoom:1.15]",
           variant === "split" && "keyboard-split",
           variant === "ortho" && "keyboard-ortho",
           variant === "compact" && "keyboard-compact",
-          className,
+          className
         )}
       >
         <KeyboardKeys />
       </div>
     </KeyboardProvider>
-  );
+  )
 }
-
-export default Keyboard;
 
 // -----------------------------------------------------------------------------
 // Internal keyboard context
 // -----------------------------------------------------------------------------
 
 export interface KeyboardContextType {
-  themeName: KeyboardThemeName;
-  layout: KeyboardLayout;
-  variant?: string;
-  pressedKeys: Set<string>;
-  lastPressedKey: string | null;
-  triggerPointerHaptic: () => void;
-  pressKey: (keyCode: string, source: KeyboardEventSource) => boolean;
-  releaseKey: (keyCode: string, source: KeyboardEventSource) => void;
-  releaseAllKeys: (source?: KeyboardEventSource) => void;
+  themeName: KeyboardThemeName
+  layout: KeyboardLayout
+  variant?: string
+  pressedKeys: Set<string>
+  lastPressedKey: string | null
+  triggerPointerHaptic: () => void
+  pressKey: (keyCode: string, source: KeyboardEventSource) => boolean
+  releaseKey: (keyCode: string, source: KeyboardEventSource) => void
+  releaseAllKeys: (source?: KeyboardEventSource) => void
 }
 
-const KeyboardContext = createContext<KeyboardContextType | null>(null);
+const KeyboardContext = createContext<KeyboardContextType | null>(null)
 
 /** OS/browsers often skip keyup for the letter key after Meta/Cmd chords; we track modifiers to clear orphans. */
 const PHYSICAL_MODIFIER_CODES = new Set<string>([
@@ -156,45 +159,45 @@ const PHYSICAL_MODIFIER_CODES = new Set<string>([
   "MetaRight",
   "ShiftLeft",
   "ShiftRight",
-]);
+])
 
 export function useKeyboardContext() {
-  const context = useContext(KeyboardContext);
+  const context = useContext(KeyboardContext)
   if (!context) {
-    throw new Error("Keyboard components must be used within KeyboardProvider");
+    throw new Error("Keyboard components must be used within KeyboardProvider")
   }
-  return context;
+  return context
 }
 
 export interface KeyboardProviderProps {
-  children: ReactNode;
-  containerRef: RefObject<HTMLDivElement | null>;
-  theme: KeyboardThemeName;
-  enableSound: boolean;
-  enableHaptics: boolean;
-  soundUrl: string;
-  soundConfigUrl?: string;
-  onKeyEvent?: (event: KeyboardInteractionEvent) => void;
-  forceActive?: boolean;
-  physicalKeysEnabled?: boolean;
-  layout: KeyboardLayout;
-  variant?: string;
-  onAudioLoadingChange?: (isLoading: boolean) => void;
+  children: ReactNode
+  containerRef: RefObject<HTMLDivElement | null>
+  theme: KeyboardThemeName
+  enableSound: boolean
+  enableHaptics: boolean
+  soundUrl: string
+  soundConfigUrl?: string
+  onKeyEvent?: (event: KeyboardInteractionEvent) => void
+  forceActive?: boolean
+  physicalKeysEnabled?: boolean
+  layout: KeyboardLayout
+  variant?: string
+  onAudioLoadingChange?: (isLoading: boolean) => void
 }
 
 type PackKeyDef =
   | { kind: "slice"; start: number; duration: number }
-  | { kind: "sample"; buffer: AudioBuffer };
+  | { kind: "sample"; buffer: AudioBuffer }
 
 interface ResolvedSoundPack {
   /** When true, release phase should be silent (pack has no per-key release sound). */
-  singleSoundPerKey: boolean;
-  defines: Record<string, PackKeyDef | null>;
+  singleSoundPerKey: boolean
+  defines: Record<string, PackKeyDef | null>
 }
 
 // Module-level caches so switching back to a previously loaded pack skips the network fetch.
-const rawBufferCache = new Map<string, ArrayBuffer>();
-const rawConfigCache = new Map<string, unknown>();
+const rawBufferCache = new Map<string, ArrayBuffer>()
+const rawConfigCache = new Map<string, unknown>()
 
 export function KeyboardProvider({
   children,
@@ -211,300 +214,316 @@ export function KeyboardProvider({
   variant,
   onAudioLoadingChange,
 }: KeyboardProviderProps) {
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const soundPackRef = useRef<ResolvedSoundPack | null>(null);
-  const pressedKeysRef = useRef<Set<string>>(new Set());
-  const modifiersDownRef = useRef<Set<string>>(new Set());
-  const { trigger } = useWebHaptics();
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const audioBufferRef = useRef<AudioBuffer | null>(null)
+  const soundPackRef = useRef<ResolvedSoundPack | null>(null)
+  const pressedKeysRef = useRef<Set<string>>(new Set())
+  const modifiersDownRef = useRef<Set<string>>(new Set())
+  const { trigger } = useWebHaptics()
 
-  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
-  const [lastPressedKey, setLastPressedKey] = useState<string | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set())
+  const [lastPressedKey, setLastPressedKey] = useState<string | null>(null)
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
     if (!enableSound || !soundUrl) {
-      audioBufferRef.current = null;
-      soundPackRef.current = null;
-      return;
+      audioBufferRef.current = null
+      soundPackRef.current = null
+      return
     }
 
-    let cancelled = false;
+    let cancelled = false
 
     const initAudio = async () => {
-      onAudioLoadingChange?.(true);
+      onAudioLoadingChange?.(true)
       try {
-        const audioContext = new AudioContext();
-        audioContextRef.current = audioContext;
+        const audioContext = new AudioContext()
+        audioContextRef.current = audioContext
 
         const fetchRawBuffer = rawBufferCache.has(soundUrl)
           ? Promise.resolve(rawBufferCache.get(soundUrl)!)
           : fetch(soundUrl)
-            .then((r) => (r.ok ? r.arrayBuffer() : null))
-            .then((ab) => { if (ab) rawBufferCache.set(soundUrl, ab); return ab; });
+              .then((r) => (r.ok ? r.arrayBuffer() : null))
+              .then((ab) => {
+                if (ab) rawBufferCache.set(soundUrl, ab)
+                return ab
+              })
 
         const fetchConfig = soundConfigUrl
           ? rawConfigCache.has(soundConfigUrl)
             ? Promise.resolve(rawConfigCache.get(soundConfigUrl))
             : fetch(soundConfigUrl)
-              .then((r) => (r.ok ? r.json() : null))
-              .then((cfg) => { if (cfg) rawConfigCache.set(soundConfigUrl, cfg); return cfg; })
-              .catch(() => null)
-          : Promise.resolve(null);
+                .then((r) => (r.ok ? r.json() : null))
+                .then((cfg) => {
+                  if (cfg) rawConfigCache.set(soundConfigUrl, cfg)
+                  return cfg
+                })
+                .catch(() => null)
+          : Promise.resolve(null)
 
         const spriteBufferPromise = fetchRawBuffer.then((ab) =>
           ab ? audioContext.decodeAudioData(ab.slice(0)) : null
-        );
+        )
 
-        const [spriteBuffer, rawConfig] = await Promise.all([spriteBufferPromise, fetchConfig]);
+        const [spriteBuffer, rawConfig] = await Promise.all([
+          spriteBufferPromise,
+          fetchConfig,
+        ])
         if (cancelled) {
-          onAudioLoadingChange?.(false);
-          return;
+          onAudioLoadingChange?.(false)
+          return
         }
 
         if (spriteBuffer) {
-          audioBufferRef.current = spriteBuffer;
+          audioBufferRef.current = spriteBuffer
         }
 
         if (!rawConfig) {
-          soundPackRef.current = null;
-          onAudioLoadingChange?.(false);
-          return;
+          soundPackRef.current = null
+          onAudioLoadingChange?.(false)
+          return
         }
 
-        const pack = await buildResolvedPack(audioContext, rawConfig, soundConfigUrl!);
+        const pack = await buildResolvedPack(
+          audioContext,
+          rawConfig,
+          soundConfigUrl!
+        )
         if (!cancelled) {
-          soundPackRef.current = pack;
+          soundPackRef.current = pack
         }
       } catch {
-        toast.error("Failed to load keyboard sounds. Check your network connection and try again.");
+        toast.error(
+          "Failed to load keyboard sounds. Check your network connection and try again."
+        )
       } finally {
         if (!cancelled) {
-          onAudioLoadingChange?.(false);
+          onAudioLoadingChange?.(false)
         }
       }
-    };
+    }
 
-    void initAudio();
+    void initAudio()
 
     return () => {
-      cancelled = true;
-      audioBufferRef.current = null;
-      soundPackRef.current = null;
+      cancelled = true
+      audioBufferRef.current = null
+      soundPackRef.current = null
 
-      const context = audioContextRef.current;
-      audioContextRef.current = null;
-      void context?.close();
-    };
-  }, [enableSound, soundUrl, soundConfigUrl]);
+      const context = audioContextRef.current
+      audioContextRef.current = null
+      void context?.close()
+    }
+    // onAudioLoadingChange is a stable setter from the parent; re-running the
+    // loader on its identity would tear down the audio context needlessly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enableSound, soundUrl, soundConfigUrl])
 
   const playSound = useCallback(
     (phase: KeyboardEventPhase, keyCode: string) => {
       if (!enableSound) {
-        return;
+        return
       }
 
-      const audioContext = audioContextRef.current;
-      const audioBuffer = audioBufferRef.current;
+      const audioContext = audioContextRef.current
+      const audioBuffer = audioBufferRef.current
       if (!audioContext || !audioBuffer) {
-        return;
+        return
       }
 
-      const soundDef = resolveSoundDef(phase, keyCode, soundPackRef.current);
+      const soundDef = resolveSoundDef(phase, keyCode, soundPackRef.current)
       if (!soundDef) {
-        return;
+        return
       }
 
       if (audioContext.state === "suspended") {
-        void audioContext.resume();
+        void audioContext.resume()
       }
 
-      const source = audioContext.createBufferSource();
+      const source = audioContext.createBufferSource()
       if (soundDef.kind === "sample") {
-        source.buffer = soundDef.buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
+        source.buffer = soundDef.buffer
+        source.connect(audioContext.destination)
+        source.start(0)
       } else {
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        source.start(0, soundDef.start / 1000, soundDef.duration / 1000);
+        source.buffer = audioBuffer
+        source.connect(audioContext.destination)
+        source.start(0, soundDef.start / 1000, soundDef.duration / 1000)
       }
     },
-    [enableSound],
-  );
+    [enableSound]
+  )
 
   const emitKeyEvent = useCallback(
     (phase: KeyboardEventPhase, code: string, source: KeyboardEventSource) => {
-      onKeyEvent?.({ code, phase, source });
+      onKeyEvent?.({ code, phase, source })
     },
-    [onKeyEvent],
-  );
+    [onKeyEvent]
+  )
 
   const triggerPointerHaptic = useCallback(() => {
     if (!enableHaptics) {
-      return;
+      return
     }
 
-    void trigger([
-      { duration: 25 },
-    ], { intensity: 0.7 })
-  }, [enableHaptics, trigger]);
+    void trigger([{ duration: 25 }], { intensity: 0.7 })
+  }, [enableHaptics, trigger])
 
   const pressKey = useCallback(
     (keyCode: string, source: KeyboardEventSource): boolean => {
       if (pressedKeysRef.current.has(keyCode)) {
-        return false;
+        return false
       }
 
       const apply = () => {
-        const next = new Set(pressedKeysRef.current);
-        next.add(keyCode);
-        pressedKeysRef.current = next;
-        setPressedKeys(next);
-        setLastPressedKey(keyCode);
-        playSound("down", keyCode);
-        emitKeyEvent("down", keyCode, source);
-      };
-
-      if (source === "pointer") {
-        flushSync(apply);
-      } else {
-        apply();
+        const next = new Set(pressedKeysRef.current)
+        next.add(keyCode)
+        pressedKeysRef.current = next
+        setPressedKeys(next)
+        setLastPressedKey(keyCode)
+        playSound("down", keyCode)
+        emitKeyEvent("down", keyCode, source)
       }
 
-      return true;
+      if (source === "pointer") {
+        flushSync(apply)
+      } else {
+        apply()
+      }
+
+      return true
     },
-    [emitKeyEvent, playSound],
-  );
+    [emitKeyEvent, playSound]
+  )
 
   const releaseKey = useCallback(
     (keyCode: string, source: KeyboardEventSource) => {
       if (!pressedKeysRef.current.has(keyCode)) {
-        return;
+        return
       }
 
       const apply = () => {
-        const next = new Set(pressedKeysRef.current);
-        next.delete(keyCode);
-        pressedKeysRef.current = next;
-        setPressedKeys(next);
-        playSound("up", keyCode);
-        emitKeyEvent("up", keyCode, source);
-      };
+        const next = new Set(pressedKeysRef.current)
+        next.delete(keyCode)
+        pressedKeysRef.current = next
+        setPressedKeys(next)
+        playSound("up", keyCode)
+        emitKeyEvent("up", keyCode, source)
+      }
 
       if (source === "pointer") {
-        flushSync(apply);
+        flushSync(apply)
       } else {
-        apply();
+        apply()
       }
     },
-    [emitKeyEvent, playSound],
-  );
+    [emitKeyEvent, playSound]
+  )
 
   const releaseAllKeys = useCallback(
     (source: KeyboardEventSource = "physical") => {
-      const keysToRelease = Array.from(pressedKeysRef.current);
+      const keysToRelease = Array.from(pressedKeysRef.current)
       if (keysToRelease.length === 0) {
-        return;
+        return
       }
 
-      pressedKeysRef.current = new Set();
-      modifiersDownRef.current = new Set();
-      setPressedKeys(new Set());
+      pressedKeysRef.current = new Set()
+      modifiersDownRef.current = new Set()
+      setPressedKeys(new Set())
 
       for (const keyCode of keysToRelease) {
-        emitKeyEvent("up", keyCode, source);
+        emitKeyEvent("up", keyCode, source)
       }
     },
-    [emitKeyEvent],
-  );
+    [emitKeyEvent]
+  )
 
   useEffect(() => {
     const handleBlur = () => {
-      releaseAllKeys();
-    };
+      releaseAllKeys()
+    }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState !== "visible") {
-        releaseAllKeys();
+        releaseAllKeys()
       }
-    };
+    }
 
-    window.addEventListener("blur", handleBlur);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
-      window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [releaseAllKeys]);
+      window.removeEventListener("blur", handleBlur)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [releaseAllKeys])
 
   useEffect(() => {
-    const element = containerRef.current;
+    const element = containerRef.current
     if (!element || typeof IntersectionObserver === "undefined") {
-      return;
+      return
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsVisible(entry.isIntersecting);
+        setIsVisible(entry.isIntersecting)
       },
-      { threshold: 0.1 },
-    );
+      { threshold: 0.1 }
+    )
 
-    observer.observe(element);
+    observer.observe(element)
 
     return () => {
-      observer.disconnect();
-    };
-  }, [containerRef]);
+      observer.disconnect()
+    }
+  }, [containerRef])
 
   useEffect(() => {
     if (!isVisible && !forceActive) {
-      return;
+      return
     }
     if (!physicalKeysEnabled) {
-      return;
+      return
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (PHYSICAL_MODIFIER_CODES.has(event.code)) {
-        modifiersDownRef.current.add(event.code);
+        modifiersDownRef.current.add(event.code)
       }
       if (event.repeat) {
-        return;
+        return
       }
-      pressKey(event.code, "physical");
-    };
+      pressKey(event.code, "physical")
+    }
 
     const handleKeyUp = (event: KeyboardEvent) => {
-      const code = event.code;
-      releaseKey(code, "physical");
+      const code = event.code
+      releaseKey(code, "physical")
 
       if (!PHYSICAL_MODIFIER_CODES.has(code)) {
-        return;
+        return
       }
 
-      const hadTracked = modifiersDownRef.current.delete(code);
+      const hadTracked = modifiersDownRef.current.delete(code)
       if (!hadTracked || modifiersDownRef.current.size > 0) {
-        return;
+        return
       }
 
       for (const stuckCode of Array.from(pressedKeysRef.current)) {
         if (!PHYSICAL_MODIFIER_CODES.has(stuckCode)) {
-          releaseKey(stuckCode, "physical");
+          releaseKey(stuckCode, "physical")
         }
       }
-    };
+    }
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
+    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("keyup", handleKeyUp)
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [isVisible, forceActive, physicalKeysEnabled, pressKey, releaseKey]);
+      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("keyup", handleKeyUp)
+    }
+  }, [isVisible, forceActive, physicalKeysEnabled, pressKey, releaseKey])
 
   return (
     <KeyboardContext.Provider
@@ -522,7 +541,7 @@ export function KeyboardProvider({
     >
       {children}
     </KeyboardContext.Provider>
-  );
+  )
 }
 
 // -----------------------------------------------------------------------------
@@ -530,23 +549,26 @@ export function KeyboardProvider({
 // -----------------------------------------------------------------------------
 
 function KeyboardKeys() {
-  const { layout, variant } = useKeyboardContext();
+  const { layout, variant } = useKeyboardContext()
 
   /** Helper: resolve label for a key from the current layout, falling back to QWERTY. */
   function label(keyCode: string): [string, string?] | undefined {
-    return layout[keyCode] ?? QWERTY_LAYOUT[keyCode];
+    return layout[keyCode] ?? QWERTY_LAYOUT[keyCode]
   }
 
   return (
     <div>
-      <div className="w-fit rounded-[16px] border-2 border-black bg-black/70 p-3 h-fit dark:border-white/20 dark:bg-white/20">
-        <div className={cn("rounded-[5px] rounded-t-[8px] border border-black bg-black/80 dark:border-zinc-500 dark:bg-zinc-700", variant === "compact" ? "h-[230px]" : "h-[278px]")}>
-          <div className="-space-y-1 -translate-y-1 rounded-[5px] overflow-hidden">
+      <div className="h-fit w-fit rounded-[16px] border-2 border-black bg-black/70 p-3 dark:border-white/20 dark:bg-white/20">
+        <div
+          className={cn(
+            "rounded-[5px] rounded-t-[8px] border border-black bg-black/80 dark:border-zinc-500 dark:bg-zinc-700",
+            variant === "compact" ? "h-[230px]" : "h-[278px]"
+          )}
+        >
+          <div className="-translate-y-1 -space-y-1 overflow-hidden rounded-[5px]">
             {variant !== "compact" && (
               <Row>
-                <Key keyCode={KEYCODE.Escape}>
-                  {"esc"}
-                </Key>
+                <Key keyCode={KEYCODE.Escape}>{"esc"}</Key>
 
                 <Key keyCode={KEYCODE.F1}>
                   <IconBrightnessDown className="size-[10px]" />
@@ -602,9 +624,7 @@ function KeyboardKeys() {
                 <Key keyCode={KEYCODE.F13}>
                   <IconFrame className="size-[10px]" />
                 </Key>
-                <Key keyCode={KEYCODE.Delete}>
-                  {"del"}
-                </Key>
+                <Key keyCode={KEYCODE.Delete}>{"del"}</Key>
                 <Key keyCode={KEYCODE.F14}>
                   <IconBulb className="size-[12px]" />
                 </Key>
@@ -612,7 +632,10 @@ function KeyboardKeys() {
             )}
 
             <Row>
-              <DualKey keyCode={KEYCODE.Backquote} labels={label("Backquote")} />
+              <DualKey
+                keyCode={KEYCODE.Backquote}
+                labels={label("Backquote")}
+              />
 
               <DualKey keyCode={KEYCODE.Digit1} labels={label("Digit1")} />
               <DualKey keyCode={KEYCODE.Digit2} labels={label("Digit2")} />
@@ -632,9 +655,7 @@ function KeyboardKeys() {
               <Key keyCode={KEYCODE.Backspace} width={100}>
                 <IconArrowNarrowLeft className="size-[12px]" />
               </Key>
-              <Key keyCode={KEYCODE.PageUp}>
-                {"pgup"}
-              </Key>
+              <Key keyCode={KEYCODE.PageUp}>{"pgup"}</Key>
             </Row>
 
             <Row>
@@ -654,13 +675,21 @@ function KeyboardKeys() {
               <DualKey keyCode={KEYCODE.KeyO} labels={label("KeyO")} />
               <DualKey keyCode={KEYCODE.KeyP} labels={label("KeyP")} />
 
-              <DualKey keyCode={KEYCODE.BracketLeft} labels={label("BracketLeft")} />
-              <DualKey keyCode={KEYCODE.BracketRight} labels={label("BracketRight")} />
+              <DualKey
+                keyCode={KEYCODE.BracketLeft}
+                labels={label("BracketLeft")}
+              />
+              <DualKey
+                keyCode={KEYCODE.BracketRight}
+                labels={label("BracketRight")}
+              />
 
-              <DualKey keyCode={KEYCODE.Backslash} labels={label("Backslash")} width={75} />
-              <Key keyCode={KEYCODE.PageDown}>
-                {"pgdn"}
-              </Key>
+              <DualKey
+                keyCode={KEYCODE.Backslash}
+                labels={label("Backslash")}
+                width={75}
+              />
+              <Key keyCode={KEYCODE.PageDown}>{"pgdn"}</Key>
             </Row>
 
             <Row>
@@ -679,15 +708,16 @@ function KeyboardKeys() {
               <DualKey keyCode={KEYCODE.KeyK} labels={label("KeyK")} />
               <DualKey keyCode={KEYCODE.KeyL} labels={label("KeyL")} />
 
-              <DualKey keyCode={KEYCODE.Semicolon} labels={label("Semicolon")} />
+              <DualKey
+                keyCode={KEYCODE.Semicolon}
+                labels={label("Semicolon")}
+              />
               <DualKey keyCode={KEYCODE.Quote} labels={label("Quote")} />
 
               <Key keyCode={KEYCODE.Enter} width={100}>
                 {"return"}
               </Key>
-              <Key keyCode={KEYCODE.Home}>
-                {"home"}
-              </Key>
+              <Key keyCode={KEYCODE.Home}>{"home"}</Key>
             </Row>
 
             <Row>
@@ -714,9 +744,7 @@ function KeyboardKeys() {
               <Key keyCode={KEYCODE.ArrowUp}>
                 <IconChevronUp className="size-[12px]" />
               </Key>
-              <Key keyCode={KEYCODE.End}>
-                {"end"}
-              </Key>
+              <Key keyCode={KEYCODE.End}>{"end"}</Key>
             </Row>
 
             <Row>
@@ -735,12 +763,8 @@ function KeyboardKeys() {
               <Key keyCode={KEYCODE.MetaRight}>
                 <IconCommand className="size-[12px]" />
               </Key>
-              <Key keyCode={KEYCODE.Fn}>
-                {"fn"}
-              </Key>
-              <Key keyCode={KEYCODE.ControlRight}>
-                {"ctrl"}
-              </Key>
+              <Key keyCode={KEYCODE.Fn}>{"fn"}</Key>
+              <Key keyCode={KEYCODE.ControlRight}>{"ctrl"}</Key>
               <Key keyCode={KEYCODE.ArrowLeft}>
                 <IconChevronLeft className="size-[12px]" />
               </Key>
@@ -755,82 +779,86 @@ function KeyboardKeys() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function Row({ children }: { children: ReactNode }) {
-  return <div className="flex">{children}</div>;
+  return <div className="flex">{children}</div>
 }
 
 /** Renders a key with one or two labels (shift label on top, normal on bottom). */
-function DualKey({ keyCode, labels, width }: { keyCode: KEYCODE; labels?: [string, string?]; width?: number }) {
+function DualKey({
+  keyCode,
+  labels,
+  width,
+}: {
+  keyCode: KEYCODE
+  labels?: [string, string?]
+  width?: number
+}) {
   if (!labels) {
-    return <Key keyCode={keyCode} width={width} />;
+    return <Key keyCode={keyCode} width={width} />
   }
-  const [normal, shift] = labels;
+  const [normal, shift] = labels
   if (shift) {
     return (
       <Key keyCode={keyCode} width={width}>
         <span>{shift}</span>
         <span>{normal}</span>
       </Key>
-    );
+    )
   }
   return (
     <Key keyCode={keyCode} width={width}>
       {normal}
     </Key>
-  );
+  )
 }
 
 interface KeyProps {
-  width?: number;
-  children?: ReactNode;
-  className?: string;
-  keyCode?: KEYCODE;
+  width?: number
+  children?: ReactNode
+  className?: string
+  keyCode?: KEYCODE
 }
 
-function Key({
-  width = 50,
-  children,
-  className,
-  keyCode,
-}: KeyProps) {
-  const { themeName, pressedKeys, pressKey, releaseKey, triggerPointerHaptic } = useKeyboardContext();
-  const isPressed = keyCode ? pressedKeys.has(keyCode) : false;
-  const pointerSessionActiveRef = useRef(false);
-  const [isPointerDownVisual, setIsPointerDownVisual] = useState(false);
-  const visuallyPressed = isPressed || isPointerDownVisual;
-  const keyVariantSlot = resolveKeyVariant(themeName, keyCode);
-  const keyVariant = KEYBOARD_THEMES[themeName].variants[keyVariantSlot];
+function Key({ width = 50, children, className, keyCode }: KeyProps) {
+  const { themeName, pressedKeys, pressKey, releaseKey, triggerPointerHaptic } =
+    useKeyboardContext()
+  const isPressed = keyCode ? pressedKeys.has(keyCode) : false
+  const pointerSessionActiveRef = useRef(false)
+  const [isPointerDownVisual, setIsPointerDownVisual] = useState(false)
+  const visuallyPressed = isPressed || isPointerDownVisual
+  const keyVariantSlot = resolveKeyVariant(themeName, keyCode)
+  const keyVariant = KEYBOARD_THEMES[themeName].variants[keyVariantSlot]
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!keyCode || event.button !== 0) {
-      return;
+      return
     }
 
-    event.preventDefault();
+    event.preventDefault()
     try {
-      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.setPointerCapture(event.pointerId)
     } catch {
       // Ignore capture failures on browsers/platforms that do not support this path.
     }
 
     if (pressKey(keyCode, "pointer")) {
-      pointerSessionActiveRef.current = true;
-      setIsPointerDownVisual(true);
+      pointerSessionActiveRef.current = true
+      setIsPointerDownVisual(true)
     }
-  };
+  }
 
   const handlePointerRelease = () => {
-    setIsPointerDownVisual(false);
+    setIsPointerDownVisual(false)
     if (!keyCode || !pointerSessionActiveRef.current) {
-      return;
+      return
     }
 
-    pointerSessionActiveRef.current = false;
-    releaseKey(keyCode, "pointer");
-  };
+    pointerSessionActiveRef.current = false
+    releaseKey(keyCode, "pointer")
+  }
 
   return (
     <button
@@ -842,12 +870,12 @@ function Key({
       onPointerCancel={handlePointerRelease}
       data-no-click-sound
       style={{ height: 50, width }}
-      className="flex items-end cursor-pointer touch-none appearance-none border-0 bg-transparent p-0 text-left focus:outline-none"
+      className="flex cursor-pointer touch-none appearance-none items-end border-0 bg-transparent p-0 text-left focus:outline-none"
     >
       <div
         className={cn(
-          "relative overflow-hidden h-[50px] rounded-[4px] rounded-t-[12px] border border-black/40 flex items-start justify-center transition-all duration-100",
-          visuallyPressed && "h-[45px]",
+          "relative flex h-[50px] items-start justify-center overflow-hidden rounded-[4px] rounded-t-[12px] border border-black/40 transition-all duration-100",
+          visuallyPressed && "h-[45px]"
         )}
         style={{
           width: `${width}px`,
@@ -858,7 +886,7 @@ function Key({
           className={cn(
             "relative z-10 h-[37px] rounded-[6px] border border-t-0 border-black/40 transition-all duration-100",
             "flex flex-col items-center justify-between gap-0.5 p-1 text-[4.5px] leading-none font-medium whitespace-nowrap select-none sm:text-[9px]",
-            className,
+            className
           )}
           style={{
             width: `${width - 13}px`,
@@ -874,19 +902,19 @@ function Key({
 
         <div
           className={cn(
-            "absolute z-0 bottom-0 right-0 h-px w-8 rotate-70 translate-x-3.5 bg-black/30 transition-all duration-100",
-            visuallyPressed && "rotate-60",
+            "absolute right-0 bottom-0 z-0 h-px w-8 translate-x-3.5 rotate-70 bg-black/30 transition-all duration-100",
+            visuallyPressed && "rotate-60"
           )}
         />
         <div
           className={cn(
-            "absolute z-0 bottom-0 left-0 h-px w-8 -rotate-70 -translate-x-3.5 bg-black/30 transition-all duration-100",
-            visuallyPressed && "-rotate-60",
+            "absolute bottom-0 left-0 z-0 h-px w-8 -translate-x-3.5 -rotate-70 bg-black/30 transition-all duration-100",
+            visuallyPressed && "-rotate-60"
           )}
         />
       </div>
     </button>
-  );
+  )
 }
 
 // -----------------------------------------------------------------------------
@@ -981,19 +1009,19 @@ export enum KEYCODE {
   AltRight = "AltRight",
 }
 
-type KeyVariantSlot = "accent" | "dark" | "light";
+type KeyVariantSlot = "accent" | "dark" | "light"
 
 interface KeyVariantDefinition {
-  bg: string;
-  text: string;
+  bg: string
+  text: string
 }
 
 interface KeyboardThemeDefinition {
-  variants: Record<KeyVariantSlot, KeyVariantDefinition>;
-  keyVariantOverrides: Partial<Record<KEYCODE, KeyVariantSlot>>;
+  variants: Record<KeyVariantSlot, KeyVariantDefinition>
+  keyVariantOverrides: Partial<Record<KEYCODE, KeyVariantSlot>>
 }
 
-const DEFAULT_KEY_VARIANT_SLOT: KeyVariantSlot = "light";
+const DEFAULT_KEY_VARIANT_SLOT: KeyVariantSlot = "light"
 
 const CLASSIC_DARK_KEYS: KEYCODE[] = [
   KEYCODE.F5,
@@ -1021,7 +1049,7 @@ const CLASSIC_DARK_KEYS: KEYCODE[] = [
   KEYCODE.MetaRight,
   KEYCODE.Fn,
   KEYCODE.ControlRight,
-];
+]
 
 const MINT_DARK_KEYS: KEYCODE[] = [
   KEYCODE.F5,
@@ -1047,13 +1075,16 @@ const MINT_DARK_KEYS: KEYCODE[] = [
   KEYCODE.MetaRight,
   KEYCODE.Fn,
   KEYCODE.ControlRight,
-];
+]
 
 // DEFINE YOUR CUSTOM THEMES HERE
 const KEYBOARD_THEMES: Record<KeyboardThemeName, KeyboardThemeDefinition> = {
   classic: {
     variants: {
-      accent: { bg: "var(--color-primary)", text: "var(--color-primary-foreground)" },
+      accent: {
+        bg: "var(--color-primary)",
+        text: "var(--color-primary-foreground)",
+      },
       dark: { bg: "#3a3a3a", text: "rgba(255,255,255,0.82)" },
       light: { bg: "#e8e8e8", text: "rgba(0,0,0,0.78)" },
     },
@@ -1075,7 +1106,7 @@ const KEYBOARD_THEMES: Record<KeyboardThemeName, KeyboardThemeDefinition> = {
         KEYCODE.ArrowLeft,
         KEYCODE.ArrowRight,
         KEYCODE.ArrowUp,
-        KEYCODE.ArrowDown
+        KEYCODE.ArrowDown,
       ],
       dark: MINT_DARK_KEYS,
     }),
@@ -1093,7 +1124,7 @@ const KEYBOARD_THEMES: Record<KeyboardThemeName, KeyboardThemeDefinition> = {
         KEYCODE.ArrowLeft,
         KEYCODE.ArrowRight,
         KEYCODE.ArrowUp,
-        KEYCODE.ArrowDown
+        KEYCODE.ArrowDown,
       ],
       dark: MINT_DARK_KEYS,
     }),
@@ -1131,94 +1162,142 @@ const KEYBOARD_THEMES: Record<KeyboardThemeName, KeyboardThemeDefinition> = {
       dark: MINT_DARK_KEYS,
     }),
   },
-};
+}
 
 function buildKeyVariantOverrides({
   accent = [],
   dark = [],
   light = [],
 }: {
-  accent?: KEYCODE[];
-  dark?: KEYCODE[];
-  light?: KEYCODE[];
+  accent?: KEYCODE[]
+  dark?: KEYCODE[]
+  light?: KEYCODE[]
 }): Partial<Record<KEYCODE, KeyVariantSlot>> {
-  const entries: Array<[KEYCODE, KeyVariantSlot]> = [];
+  const entries: Array<[KEYCODE, KeyVariantSlot]> = []
 
   for (const keyCode of accent) {
-    entries.push([keyCode, "accent"]);
+    entries.push([keyCode, "accent"])
   }
   for (const keyCode of dark) {
-    entries.push([keyCode, "dark"]);
+    entries.push([keyCode, "dark"])
   }
   for (const keyCode of light) {
-    entries.push([keyCode, "light"]);
+    entries.push([keyCode, "light"])
   }
 
-  return Object.fromEntries(entries) as Partial<Record<KEYCODE, KeyVariantSlot>>;
+  return Object.fromEntries(entries) as Partial<Record<KEYCODE, KeyVariantSlot>>
 }
 
 function resolveKeyVariant(
   themeName: KeyboardThemeName,
-  keyCode?: KEYCODE,
+  keyCode?: KEYCODE
 ): KeyVariantSlot {
   if (!keyCode) {
-    return DEFAULT_KEY_VARIANT_SLOT;
+    return DEFAULT_KEY_VARIANT_SLOT
   }
   return (
     KEYBOARD_THEMES[themeName].keyVariantOverrides[keyCode] ??
     DEFAULT_KEY_VARIANT_SLOT
-  );
+  )
 }
 
 function toRgba(color: string, alpha: number): string {
   if (!color.startsWith("#")) {
-    return color;
+    return color
   }
 
-  const value = color.slice(1);
-  const hex = value.length === 3
-    ? value
-      .split("")
-      .map((char) => `${char}${char}`)
-      .join("")
-    : value;
+  const value = color.slice(1)
+  const hex =
+    value.length === 3
+      ? value
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : value
 
   if (hex.length !== 6) {
-    return color;
+    return color
   }
 
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  const red = Number.parseInt(hex.slice(0, 2), 16)
+  const green = Number.parseInt(hex.slice(2, 4), 16)
+  const blue = Number.parseInt(hex.slice(4, 6), 16)
 
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
-
 
 const DOM_CODE_TO_SCANCODES: Record<string, number[]> = {
   Escape: [1],
-  Digit1: [2], Digit2: [3], Digit3: [4], Digit4: [5], Digit5: [6],
-  Digit6: [7], Digit7: [8], Digit8: [9], Digit9: [10], Digit0: [11],
-  Minus: [12], Equal: [13], Backspace: [14],
+  Digit1: [2],
+  Digit2: [3],
+  Digit3: [4],
+  Digit4: [5],
+  Digit5: [6],
+  Digit6: [7],
+  Digit7: [8],
+  Digit8: [9],
+  Digit9: [10],
+  Digit0: [11],
+  Minus: [12],
+  Equal: [13],
+  Backspace: [14],
   Tab: [15],
-  KeyQ: [16], KeyW: [17], KeyE: [18], KeyR: [19], KeyT: [20],
-  KeyY: [21], KeyU: [22], KeyI: [23], KeyO: [24], KeyP: [25],
-  BracketLeft: [26], BracketRight: [27],
+  KeyQ: [16],
+  KeyW: [17],
+  KeyE: [18],
+  KeyR: [19],
+  KeyT: [20],
+  KeyY: [21],
+  KeyU: [22],
+  KeyI: [23],
+  KeyO: [24],
+  KeyP: [25],
+  BracketLeft: [26],
+  BracketRight: [27],
   Enter: [28],
   ControlLeft: [29],
-  KeyA: [30], KeyS: [31], KeyD: [32], KeyF: [33], KeyG: [34],
-  KeyH: [35], KeyJ: [36], KeyK: [37], KeyL: [38],
-  Semicolon: [39], Quote: [40], Backquote: [41],
-  ShiftLeft: [42], Backslash: [43],
-  KeyZ: [44], KeyX: [45], KeyC: [46], KeyV: [47], KeyB: [48],
-  KeyN: [49], KeyM: [50],
-  Comma: [51], Period: [52], Slash: [53],
+  KeyA: [30],
+  KeyS: [31],
+  KeyD: [32],
+  KeyF: [33],
+  KeyG: [34],
+  KeyH: [35],
+  KeyJ: [36],
+  KeyK: [37],
+  KeyL: [38],
+  Semicolon: [39],
+  Quote: [40],
+  Backquote: [41],
+  ShiftLeft: [42],
+  Backslash: [43],
+  KeyZ: [44],
+  KeyX: [45],
+  KeyC: [46],
+  KeyV: [47],
+  KeyB: [48],
+  KeyN: [49],
+  KeyM: [50],
+  Comma: [51],
+  Period: [52],
+  Slash: [53],
   ShiftRight: [54],
-  AltLeft: [56], Space: [57], CapsLock: [58],
-  F1: [59], F2: [60], F3: [61], F4: [62], F5: [63],
-  F6: [64], F7: [65], F8: [66], F9: [67], F10: [68],
-  F11: [87], F12: [88],
-  F13: [100, 88], F14: [101, 88],
+  AltLeft: [56],
+  Space: [57],
+  CapsLock: [58],
+  F1: [59],
+  F2: [60],
+  F3: [61],
+  F4: [62],
+  F5: [63],
+  F6: [64],
+  F7: [65],
+  F8: [66],
+  F9: [67],
+  F10: [68],
+  F11: [87],
+  F12: [88],
+  F13: [100, 88],
+  F14: [101, 88],
   Fn: [29],
   ControlRight: [57373, 3613],
   AltRight: [57400, 3640],
@@ -1233,11 +1312,11 @@ const DOM_CODE_TO_SCANCODES: Record<string, number[]> = {
   ArrowDown: [57424],
   MetaLeft: [57435, 3675],
   MetaRight: [57436, 3676],
-};
+}
 
 interface RawSoundPackConfig {
-  key_define_type?: "single" | "multi";
-  defines?: Record<string, unknown>;
+  key_define_type?: "single" | "multi"
+  defines?: Record<string, unknown>
 }
 
 /**
@@ -1247,16 +1326,16 @@ interface RawSoundPackConfig {
 async function buildResolvedPack(
   audioContext: AudioContext,
   raw: RawSoundPackConfig,
-  configUrl: string,
+  configUrl: string
 ): Promise<ResolvedSoundPack> {
-  const rawDefines = raw.defines ?? {};
-  const baseUrl = configUrl.slice(0, configUrl.lastIndexOf("/") + 1);
+  const rawDefines = raw.defines ?? {}
+  const baseUrl = configUrl.slice(0, configUrl.lastIndexOf("/") + 1)
 
   // Gather unique sample filenames (for "multi" packs that ship one .wav per key group).
-  const uniqueFilenames = new Set<string>();
+  const uniqueFilenames = new Set<string>()
   for (const value of Object.values(rawDefines)) {
     if (typeof value === "string" && value.length > 0) {
-      uniqueFilenames.add(value);
+      uniqueFilenames.add(value)
     }
   }
 
@@ -1264,60 +1343,66 @@ async function buildResolvedPack(
   const samplesEntries = await Promise.all(
     Array.from(uniqueFilenames).map(async (filename) => {
       try {
-        const response = await fetch(baseUrl + filename);
+        const response = await fetch(baseUrl + filename)
         if (!response.ok) {
-          return [filename, null] as const;
+          return [filename, null] as const
         }
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = await audioContext.decodeAudioData(arrayBuffer);
-        return [filename, buffer] as const;
+        const arrayBuffer = await response.arrayBuffer()
+        const buffer = await audioContext.decodeAudioData(arrayBuffer)
+        return [filename, buffer] as const
       } catch {
-        return [filename, null] as const;
+        return [filename, null] as const
       }
-    }),
-  );
-  const sampleBuffers = new Map<string, AudioBuffer | null>(samplesEntries);
+    })
+  )
+  const sampleBuffers = new Map<string, AudioBuffer | null>(samplesEntries)
 
-  const defines: Record<string, PackKeyDef | null> = {};
+  const defines: Record<string, PackKeyDef | null> = {}
   for (const [scancode, value] of Object.entries(rawDefines)) {
-    if (Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
-      defines[scancode] = { kind: "slice", start: value[0], duration: value[1] };
+    if (
+      Array.isArray(value) &&
+      value.length >= 2 &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number"
+    ) {
+      defines[scancode] = { kind: "slice", start: value[0], duration: value[1] }
     } else if (typeof value === "string") {
-      const buffer = sampleBuffers.get(value);
-      defines[scancode] = buffer ? { kind: "sample", buffer } : null;
+      const buffer = sampleBuffers.get(value)
+      defines[scancode] = buffer ? { kind: "sample", buffer } : null
     } else {
-      defines[scancode] = null;
+      defines[scancode] = null
     }
   }
 
-  return { singleSoundPerKey: true, defines };
+  return { singleSoundPerKey: true, defines }
 }
 
 function resolveSoundDef(
   phase: KeyboardEventPhase,
   keyCode: string,
-  pack: ResolvedSoundPack | null,
+  pack: ResolvedSoundPack | null
 ): PackKeyDef | undefined {
   if (pack) {
     // These packs define only a press sound; stay silent on release rather than playing wrong audio.
     if (phase === "up" && pack.singleSoundPerKey) {
-      return undefined;
+      return undefined
     }
-    const scancodes = DOM_CODE_TO_SCANCODES[keyCode];
+    const scancodes = DOM_CODE_TO_SCANCODES[keyCode]
     if (!scancodes) {
-      return undefined;
+      return undefined
     }
     for (const scancode of scancodes) {
-      const def = pack.defines[String(scancode)];
+      const def = pack.defines[String(scancode)]
       if (def) {
-        return def;
+        return def
       }
     }
-    return undefined;
+    return undefined
   }
-  const builtin = phase === "down" ? SOUND_DEFINES_DOWN[keyCode] : SOUND_DEFINES_UP[keyCode];
-  if (!builtin) return undefined;
-  return { kind: "slice", start: builtin[0], duration: builtin[1] };
+  const builtin =
+    phase === "down" ? SOUND_DEFINES_DOWN[keyCode] : SOUND_DEFINES_UP[keyCode]
+  if (!builtin) return undefined
+  return { kind: "slice", start: builtin[0], duration: builtin[1] }
 }
 
 export const SOUND_DEFINES_DOWN: Record<string, [number, number]> = {
@@ -1406,7 +1491,7 @@ export const SOUND_DEFINES_DOWN: Record<string, [number, number]> = {
   ArrowDown: [37267, 94],
   ArrowRight: [37586, 88],
   AltRight: [35878, 90],
-};
+}
 
 export const SOUND_DEFINES_UP: Record<string, [number, number]> = {
   Escape: [9069 + 115, 94],
@@ -1494,4 +1579,4 @@ export const SOUND_DEFINES_UP: Record<string, [number, number]> = {
   ArrowDown: [37267 + 94, 76],
   ArrowRight: [37586 + 88, 72],
   AltRight: [35878 + 90, 74],
-};
+}

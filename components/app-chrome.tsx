@@ -24,15 +24,13 @@ import {
   IconTargetArrow,
   IconChartLine,
   IconSwords,
+  IconHistory,
 } from "@tabler/icons-react"
-import { GithubLogo } from "@phosphor-icons/react"
 
-import { CornerBrackets } from "@/components/corner-brackets"
 import { DynamicFavicon } from "@/components/dynamic-favicon"
 import { PracticeDashboard } from "@/components/practice-dashboard"
 import { RaceCreateJoinDialog } from "@/components/race-create-join-dialog"
 import { SettingsPanel } from "@/components/settings-panel"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useClickSound } from "@/hooks/use-click-sound"
 
@@ -45,7 +43,13 @@ interface AppChromeContextValue {
   setTypingActive: (active: boolean) => void
   homeLogoHandlerRef: React.MutableRefObject<(() => void) | null>
   startPracticeRef: React.MutableRefObject<((words: string[]) => void) | null>
-  setDashboardOpen: React.MutableRefObject<((open: boolean) => void) | null>
+  setDashboardOpenRef: React.MutableRefObject<((open: boolean) => void) | null>
+}
+
+/** Minimal typings for the VirtualKeyboard API (Chrome/Edge on Android). */
+interface VirtualKeyboard extends EventTarget {
+  overlaysContent: boolean
+  boundingRect: { height: number }
 }
 
 const AppChromeContext = createContext<AppChromeContextValue | null>(null)
@@ -57,7 +61,6 @@ export function useAppChrome() {
 }
 
 export function AppChrome({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [testSettingsOpen, setTestSettingsOpen] = useState(false)
   const [typingActive, setTypingActive] = useState(false)
@@ -65,39 +68,32 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(true)
   const homeLogoHandlerRef = useRef<(() => void) | null>(null)
   const startPracticeRef = useRef<((words: string[]) => void) | null>(null)
-  const setDashboardOpen = useRef<((open: boolean) => void) | null>(null)
+  const setDashboardOpenRef = useRef<((open: boolean) => void) | null>(null)
   useClickSound()
 
   useEffect(() => {
     if (typeof window === "undefined") return
 
     applyCustomThemeToDom(loadCustomTheme())
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    const checkMobile = () =>
+      queueMicrotask(() => setIsMobile(window.innerWidth < 1024))
     checkMobile()
     window.addEventListener("resize", checkMobile)
 
     // Modern VirtualKeyboard API (Chrome/Edge/Android)
-    // @ts-ignore
-    if ("virtualKeyboard" in navigator) {
-      // @ts-ignore
-      navigator.virtualKeyboard.overlaysContent = true
-      const onGeometryChange = (e: any) => {
-        const { height } = e.target.boundingRect
-        setKeyboardInset(height)
+    const vk = (navigator as Navigator & { virtualKeyboard?: VirtualKeyboard })
+      .virtualKeyboard
+    if (vk) {
+      vk.overlaysContent = true
+      const onGeometryChange = (e: Event) => {
+        const { height } = (e.target as VirtualKeyboard).boundingRect
+        queueMicrotask(() => setKeyboardInset(height))
       }
-      // @ts-ignore
-      navigator.virtualKeyboard.addEventListener(
-        "geometrychange",
-        onGeometryChange
-      )
+      vk.addEventListener("geometrychange", onGeometryChange)
 
       return () => {
         window.removeEventListener("resize", checkMobile)
-        // @ts-ignore
-        navigator.virtualKeyboard.removeEventListener(
-          "geometrychange",
-          onGeometryChange
-        )
+        vk.removeEventListener("geometrychange", onGeometryChange)
       }
     }
 
@@ -110,11 +106,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
     const onResize = () => {
       // On iOS, when keyboard opens, visualViewport.height shrinks.
       const delta = window.innerHeight - vv.height
-      if (delta > 100) {
-        setKeyboardInset(delta)
-      } else {
-        setKeyboardInset(0)
-      }
+      queueMicrotask(() => setKeyboardInset(delta > 100 ? delta : 0))
     }
 
     vv.addEventListener("resize", onResize)
@@ -146,7 +138,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       setTypingActive,
       homeLogoHandlerRef,
       startPracticeRef,
-      setDashboardOpen,
+      setDashboardOpenRef,
     }),
     [settingsOpen, testSettingsOpen, typingActive]
   )
@@ -255,30 +247,26 @@ function SiteHeader() {
   const {
     typingActive,
     setSettingsOpen,
-    setDashboardOpen,
+    setDashboardOpenRef,
     homeLogoHandlerRef,
     startPracticeRef,
   } = useAppChrome()
-  const [headerVisible, setHeaderVisible] = useState(true)
   const [mouseHeaderVisible, setMouseHeaderVisible] = useState(false)
   const [dashboardOpen, setDashboardOpenLocal] = useState(false)
   const [raceDialogOpen, setRaceDialogOpen] = useState(false)
   const headerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    setDashboardOpen.current = setDashboardOpenLocal
+    setDashboardOpenRef.current = setDashboardOpenLocal
     return () => {
-      setDashboardOpen.current = () => {}
+      setDashboardOpenRef.current = () => {}
     }
-  }, [setDashboardOpen])
+  }, [setDashboardOpenRef])
 
-  useEffect(() => {
-    if (!isHome || !typingActive) {
-      setHeaderVisible(true)
-      return
-    }
-    setHeaderVisible(mouseHeaderVisible)
-  }, [isHome, typingActive, mouseHeaderVisible])
+  // Derived visibility — no state sync needed; header dims only while an
+  // active typing session on the home page is not being hovered.
+  const effectiveHeaderVisible =
+    !isHome || !typingActive ? true : mouseHeaderVisible
 
   const handleHeaderMouseMove = useCallback(() => {
     if (!isHome || !typingActive) return
@@ -311,7 +299,9 @@ function SiteHeader() {
   return (
     <>
       <motion.header
-        animate={{ opacity: dimHeader ? (headerVisible ? 1 : 0.1) : 1 }}
+        animate={{
+          opacity: dimHeader ? (effectiveHeaderVisible ? 1 : 0.1) : 1,
+        }}
         transition={{ duration: 0.4, ease: "easeInOut" }}
         onMouseMove={handleHeaderMouseMove}
         className="sticky top-0 z-40 flex shrink-0 justify-center border-b border-border/60 bg-background/40 px-6 py-3 backdrop-blur-lg"
@@ -351,6 +341,25 @@ function SiteHeader() {
                 aria-label="About VeloKey"
               >
                 <IconInfoCircle
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  aria-hidden
+                />
+              </Link>
+
+              <Link
+                href="/changelog"
+                prefetch
+                className={cn(
+                  iconButtonClass,
+                  pathname === "/changelog" &&
+                    "border-primary/50 bg-primary/10 text-foreground"
+                )}
+                aria-current={pathname === "/changelog" ? "page" : undefined}
+                aria-label="Changelog"
+              >
+                <IconHistory
                   size={16}
                   stroke={1.5}
                   className="transition-transform duration-200 group-hover:scale-110"
