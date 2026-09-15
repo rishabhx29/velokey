@@ -12,7 +12,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
 
   useEffect(() => {
     if (countdown === 0) {
-      setShowGo(true)
+      queueMicrotask(() => setShowGo(true))
       const t = setTimeout(() => setShowGo(false), 800)
       return () => clearTimeout(t)
     }
@@ -22,7 +22,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
   if (countdown === null && !showGo) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-background/40 backdrop-blur-sm transition-all">
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm transition-all">
       <AnimatePresence mode="wait">
         {countdown !== null && countdown > 0 ? (
           <motion.div
@@ -31,7 +31,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 1.5, filter: "blur(10px)" }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="text-[15rem] font-bold text-primary font-mono tabular-nums leading-none drop-shadow-2xl"
+            className="font-mono text-[15rem] leading-none font-bold text-primary tabular-nums drop-shadow-2xl"
           >
             {countdown}
           </motion.div>
@@ -42,7 +42,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 2, filter: "blur(10px)" }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className="text-[12rem] font-bold text-green-500 font-mono italic leading-none drop-shadow-2xl uppercase tracking-tighter"
+            className="font-mono text-[12rem] leading-none font-bold tracking-tighter text-green-500 uppercase italic drop-shadow-2xl"
           >
             GO!
           </motion.div>

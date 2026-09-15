@@ -12,16 +12,19 @@ import { IconSwords } from "@tabler/icons-react"
 import { normalizeRoomCode, isValidRoomCode } from "@/lib/room-code"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { AppChrome } from "@/components/app-chrome"
 import { toast } from "sonner"
 
-export default function RacePage({ params }: { params: Promise<{ roomCode: string }> }) {
+export default function RacePage({
+  params,
+}: {
+  params: Promise<{ roomCode: string }>
+}) {
   const resolvedParams = use(params)
   const rawCode = resolvedParams.roomCode
   const router = useRouter()
-  
+
   const roomCode = normalizeRoomCode(rawCode)
-  
+
   useEffect(() => {
     if (!roomCode || !isValidRoomCode(roomCode)) {
       toast.error("Invalid room code")
@@ -40,14 +43,13 @@ export default function RacePage({ params }: { params: Promise<{ roomCode: strin
 
 function RaceClientView({ roomCode }: { roomCode: string }) {
   const connection = useRaceConnection(roomCode)
-  const { 
-    connected, 
+  const {
+    connected,
     connectionState,
     error,
-    roomStatus, 
-    players, 
-    hostId, 
-    myPlayerId, 
+    roomStatus,
+    players,
+    myPlayerId,
     countdown,
     progress,
     words,
@@ -56,40 +58,35 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
     raceWordOption,
     roomConfig,
     sendProgress,
-    sendFinish
+    sendFinish,
   } = connection
-  
+
   // Show connection state if not connected yet
   if (!connected) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="flex gap-2 items-center text-muted-foreground">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <div className="flex items-center gap-2 text-muted-foreground">
           <IconSwords size={20} className="animate-pulse" />
-          <span className="font-medium animate-pulse">{connectionState === "reconnecting" ? "Reconnecting to race server..." : "Connecting to race server..."}</span>
+          <span className="animate-pulse font-medium">
+            {connectionState === "reconnecting"
+              ? "Reconnecting to race server..."
+              : "Connecting to race server..."}
+          </span>
         </div>
-        {error && <p role="alert" className="text-sm text-destructive">{error}. Retrying automatically…</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}. Retrying automatically…
+          </p>
+        )}
       </div>
     )
   }
 
-  // Handle typing test completion
-  const handleFinished = (finished: boolean) => {
-    if (finished) {
-      // In a real typing test, onFinished triggers when test completes locally.
-      // We rely on the local TypingTest to maintain accurate stats, then push them.
-      // The push happens indirectly because we assume typing-test will call our 
-      // progress updates which eventually leads to us finishing.
-      // For immediate finish signal:
-      // Note: TypingTest might not directly give us final stats on finished callback, 
-      // but `useTypingTest` does inside. We'll handle this cleanly via onProgressUpdate in TypingTest.
-    }
-  }
-
   return (
-    <div className="flex flex-1 flex-col overflow-hidden relative w-full pt-8 pb-12">
+    <div className="relative flex w-full flex-1 flex-col overflow-hidden pt-8 pb-12">
       {/* Background glow specific to race page */}
       <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center overflow-hidden">
-        <div className="h-[600px] w-[1000px] rounded-full bg-gradient-to-tr from-amber-500/10 via-amber-500/5 to-transparent blur-3xl opacity-60 mix-blend-screen" />
+        <div className="h-[600px] w-[1000px] rounded-full bg-gradient-to-tr from-amber-500/10 via-amber-500/5 to-transparent opacity-60 mix-blend-screen blur-3xl" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -100,7 +97,7 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, scale: 0.98, filter: "blur(4px)" }}
             transition={{ duration: 0.2 }}
-            className="flex-1 w-full"
+            className="w-full flex-1"
           >
             <RaceLobby connection={connection} />
           </motion.div>
@@ -113,36 +110,37 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 w-full flex flex-col justify-center"
+            className="flex w-full flex-1 flex-col justify-center"
           >
-            <RaceProgressStrip 
-              players={players} 
-              progress={progress} 
-              myPlayerId={myPlayerId} 
-              config={roomConfig} 
+            <RaceProgressStrip
+              players={players}
+              progress={progress}
+              myPlayerId={myPlayerId}
+              config={roomConfig}
             />
-            
-            <div className="w-full relative">
-              <TypingTest 
+
+            <div className="relative w-full">
+              <TypingTest
                 raceWords={words.length > 0 ? words : undefined}
                 raceMode={raceMode || undefined}
                 raceTimeOption={raceTimeOption || undefined}
                 raceWordOption={raceWordOption || undefined}
                 hideControls={true}
-                onFinished={handleFinished}
+                disabled={roomStatus === "countdown"}
                 onProgressUpdate={(prog) => {
-                  sendProgress(prog.wordIndex, prog.totalWords, prog.wpm, prog.accuracy)
+                  sendProgress(
+                    prog.wordIndex,
+                    prog.totalWords,
+                    prog.wpm,
+                    prog.accuracy
+                  )
                 }}
                 onRaceFinish={(stats) => {
                   sendFinish(stats)
                 }}
               />
-              {/* Optional overlay that blocks typing while in countdown */}
-              {roomStatus === "countdown" && (
-                <div className="absolute inset-0 z-30 bg-transparent cursor-not-allowed" />
-              )}
             </div>
-            
+
             <RaceCountdown countdown={countdown} />
           </motion.div>
         )}
@@ -154,7 +152,7 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 w-full"
+            className="w-full flex-1"
           >
             <RaceResults connection={connection} />
           </motion.div>
