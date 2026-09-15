@@ -14,12 +14,13 @@ import type {
   LeaderboardEntry,
 } from "@/shared/race-protocol"
 import { PROGRESS_THROTTLE_MS } from "@/shared/race-protocol"
-import { getOrCreateNickname, getOrCreateColor, getOrCreateSessionId } from "@/lib/race-identity"
+import {
+  getOrCreateNickname,
+  getOrCreateColor,
+  getOrCreateSessionId,
+} from "@/lib/race-identity"
 import { markPerformance, measurePerformance } from "@/lib/performance-metrics"
-
-// ── PartyKit host — configure via env or fallback ────────────────────────────
-const PARTYKIT_HOST =
-  process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999"
+import { PARTYKIT_HOST } from "@/lib/partykit-host"
 
 // ── Hook return type ─────────────────────────────────────────────────────────
 
@@ -29,6 +30,8 @@ export interface UseRaceConnectionReturn {
   players: Player[]
   roomStatus: RoomStatus
   roomConfig: RoomConfig
+  /** Authoritative room code reported by the server */
+  roomCode: string
   hostId: string
   isHost: boolean
   myPlayerId: string
@@ -43,7 +46,12 @@ export interface UseRaceConnectionReturn {
   connectionState: "connecting" | "connected" | "reconnecting" | "disconnected"
 
   // Actions
-  sendProgress: (wordIndex: number, totalWords: number, wpm: number, accuracy: number) => void
+  sendProgress: (
+    wordIndex: number,
+    totalWords: number,
+    wpm: number,
+    accuracy: number
+  ) => void
   sendFinish: (stats: {
     wpm: number
     accuracy: number
@@ -52,7 +60,7 @@ export interface UseRaceConnectionReturn {
     correctChars: number
     incorrectChars: number
     wpmHistory: { second: number; wpm: number; raw: number; errors: number }[]
-    wordInputs: string[]
+    wordInputs?: string[]
   }) => void
   startRace: () => void
   setReady: (ready: boolean) => void
@@ -66,6 +74,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   const [connected, setConnected] = useState(false)
   const [players, setPlayers] = useState<Player[]>([])
   const [roomStatus, setRoomStatus] = useState<RoomStatus>("lobby")
+  const [serverRoomCode, setServerRoomCode] = useState<string>("")
   const [roomConfig, setRoomConfig] = useState<RoomConfig>({
     mode: "words",
     wordOption: 25,
@@ -83,7 +92,8 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   const [progress, setProgress] = useState<RaceProgress[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [connectionState, setConnectionState] = useState<UseRaceConnectionReturn["connectionState"]>("connecting")
+  const [connectionState, setConnectionState] =
+    useState<UseRaceConnectionReturn["connectionState"]>("connecting")
 
   const socketRef = useRef<PartySocket | null>(null)
   const lastProgressRef = useRef<number>(0)
@@ -120,7 +130,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
           nickname: getOrCreateNickname(),
           color: getOrCreateColor(),
           sessionId: sessionIdRef.current,
-        }),
+        })
       )
     })
 
@@ -148,6 +158,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
           setHostId(msg.hostId)
           setRoomStatus(msg.status)
           setRoomConfig(msg.config)
+          if (msg.roomCode) setServerRoomCode(msg.roomCode)
           break
 
         case "countdown":
@@ -214,7 +225,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
       lastProgressRef.current = now
       send({ type: "progress", wordIndex, totalWords, wpm, accuracy })
     },
-    [send],
+    [send]
   )
 
   const sendFinish = useCallback(
@@ -226,11 +237,11 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
       correctChars: number
       incorrectChars: number
       wpmHistory: { second: number; wpm: number; raw: number; errors: number }[]
-      wordInputs: string[]
+      wordInputs?: string[]
     }) => {
-      send({ type: "finish", ...stats })
+      send({ type: "finish", ...stats, wordInputs: stats.wordInputs ?? [] })
     },
-    [send],
+    [send]
   )
 
   const startRace = useCallback(() => {
@@ -241,7 +252,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
     (ready: boolean) => {
       send({ type: "ready", ready })
     },
-    [send],
+    [send]
   )
 
   const rematch = useCallback(() => {
@@ -259,6 +270,7 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
     players,
     roomStatus,
     roomConfig,
+    roomCode: serverRoomCode || roomCode,
     hostId,
     isHost,
     myPlayerId,
