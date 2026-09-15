@@ -1,18 +1,32 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { IconX, IconLoader2, IconChevronDown, IconExternalLink, IconPalette } from "@tabler/icons-react"
+import {
+  IconX,
+  IconLoader2,
+  IconChevronDown,
+  IconPalette,
+} from "@tabler/icons-react"
 import { ThemeStudioDialog } from "@/components/theme-studio-dialog"
 import type { SoundPack } from "@/components/settings-context"
 import { CaretDownIcon } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
-import { useSettings, ACCENT_COLORS, FONT_OPTIONS, FONT_SIZES, SOUND_PACKS } from "@/components/settings-context"
+import {
+  useSettings,
+  ACCENT_COLORS,
+  FONT_OPTIONS,
+  FONT_SIZES,
+  SOUND_PACKS,
+} from "@/components/settings-context"
 import { NextThemeSwitcher } from "@/components/kibo-ui/theme-switcher"
 
-
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { Language } from "@/lib/languages"
 import { getLanguageManifest, isRTLLanguage } from "@/lib/languages"
@@ -25,7 +39,47 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const {
-    accent, setAccent, font, setFont, showKeyboard, setShowKeyboard, keyboardStyle, setKeyboardStyle, soundEnabled, setSoundEnabled, clickSoundEnabled, setClickSoundEnabled, realtimeWpm, setRealtimeWpm, faahMode, setFaahMode, ghostMode, setGhostMode, shakeMode, setShakeMode, paceBotEnabled, setPaceBotEnabled, paceBotWpm, setPaceBotWpm, soundPack, setSoundPack, language, setLanguage, showDiacritics, setShowDiacritics, fontSize, setFontSize, syntaxHighlighting, setSyntaxHighlighting, autoPair, setAutoPair, showLineNumbers, setShowLineNumbers, soundPackLoading, colorTheme, setColorTheme,
+    accent,
+    setAccent,
+    font,
+    setFont,
+    showKeyboard,
+    setShowKeyboard,
+    keyboardStyle,
+    setKeyboardStyle,
+    soundEnabled,
+    setSoundEnabled,
+    clickSoundEnabled,
+    setClickSoundEnabled,
+    realtimeWpm,
+    setRealtimeWpm,
+    faahMode,
+    setFaahMode,
+    ghostMode,
+    setGhostMode,
+    shakeMode,
+    setShakeMode,
+    paceBotEnabled,
+    setPaceBotEnabled,
+    paceBotWpm,
+    setPaceBotWpm,
+    soundPack,
+    setSoundPack,
+    language,
+    setLanguage,
+    showDiacritics,
+    setShowDiacritics,
+    fontSize,
+    setFontSize,
+    syntaxHighlighting,
+    setSyntaxHighlighting,
+    autoPair,
+    setAutoPair,
+    showLineNumbers,
+    setShowLineNumbers,
+    soundPackLoading,
+    colorTheme,
+    setColorTheme,
   } = useSettings()
   const isRTL = isRTLLanguage(language)
   const [isMobile, setIsMobile] = useState(false)
@@ -81,7 +135,10 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       getLanguageManifest().then(setLanguages)
     }
     if (open && themes.length === 0) {
-      fetch("/api/themes").then((r) => r.json()).then(setThemes).catch(() => { })
+      fetch("/api/themes")
+        .then((r) => r.json())
+        .then(setThemes)
+        .catch(() => {})
     }
   }, [open, languages.length, themes.length])
 
@@ -100,7 +157,10 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         <div className="relative mt-3">
           <button
             type="button"
-            onClick={() => { setThemePickerOpen((v) => !v); setThemeSearch("") }}
+            onClick={() => {
+              setThemePickerOpen((v) => !v)
+              setThemeSearch("")
+            }}
             className={cn(
               "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
               "hover:bg-muted/50"
@@ -118,12 +178,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   />
                 )
               })()}
-              {themes.find((t) => t.id === colorTheme)?.label ?? (
-                colorTheme.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
-              )}
+              {themes.find((t) => t.id === colorTheme)?.label ??
+                colorTheme
+                  .split("-")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" ")}
             </span>
             <CaretDownIcon
-              className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", themePickerOpen && "rotate-180")}
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                themePickerOpen && "rotate-180"
+              )}
               weight="bold"
             />
           </button>
@@ -135,7 +200,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="absolute top-[calc(100%+4px)] left-0 w-full z-50 overflow-hidden shadow-xl rounded-lg border border-border bg-background"
+                className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
               >
                 <div className="border-b border-border px-2 py-1.5">
                   <input
@@ -143,24 +208,32 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     placeholder="Search themes..."
                     value={themeSearch}
                     onChange={(e) => setThemeSearch(e.target.value)}
-                    className="w-full bg-transparent text-[16px] md:text-xs outline-none placeholder:text-muted-foreground"
+                    className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
                     autoFocus
                   />
                 </div>
-                <div className="flex flex-col p-1 max-h-48 overflow-y-auto custom-scrollbar">
+                <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
                   {(() => {
                     const q = themeSearch.trim().toLowerCase()
                     const filtered = q
-                      ? themes.filter((t) => t.label.toLowerCase().includes(q) || t.id.toLowerCase().includes(q))
+                      ? themes.filter(
+                          (t) =>
+                            t.label.toLowerCase().includes(q) ||
+                            t.id.toLowerCase().includes(q)
+                        )
                       : themes
                     return filtered.length > 0 ? (
                       filtered.map((t) => (
                         <button
                           type="button"
                           key={t.id}
-                          onClick={() => { setColorTheme(t.id, t.url, t.fontSans, t.fontMono); setThemePickerOpen(false); setThemeSearch("") }}
+                          onClick={() => {
+                            setColorTheme(t.id, t.url, t.fontSans, t.fontMono)
+                            setThemePickerOpen(false)
+                            setThemeSearch("")
+                          }}
                           className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors text-left",
+                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                             colorTheme === t.id
                               ? "bg-primary/10 text-primary"
                               : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -173,13 +246,21 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                               background: t.primaryColor ?? `var(--primary)`,
                             }}
                           />
-                          <span style={t.fontSans ? { fontFamily: t.fontSans } : undefined}>
+                          <span
+                            style={
+                              t.fontSans
+                                ? { fontFamily: t.fontSans }
+                                : undefined
+                            }
+                          >
                             {t.label}
                           </span>
                         </button>
                       ))
                     ) : (
-                      <p className="py-4 text-center text-xs text-muted-foreground">No themes found</p>
+                      <p className="py-4 text-center text-xs text-muted-foreground">
+                        No themes found
+                      </p>
                     )
                   })()}
                 </div>
@@ -189,20 +270,22 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </div>
       </section>
 
-
       <section>
         <div className="flex items-center justify-between">
           <SectionLabel>Accent</SectionLabel>
           <button
             type="button"
             onClick={() => setThemeStudioOpen(true)}
-            className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline cursor-pointer"
+            className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-primary hover:underline"
           >
             <IconPalette className="size-3.5" />
             Theme Studio
           </button>
         </div>
-        <ThemeStudioDialog open={themeStudioOpen} onOpenChange={setThemeStudioOpen} />
+        <ThemeStudioDialog
+          open={themeStudioOpen}
+          onOpenChange={setThemeStudioOpen}
+        />
         <div ref={swatchRef} className="mt-3">
           <TooltipProvider delayDuration={300}>
             <div className="grid grid-cols-8 gap-1.5">
@@ -238,7 +321,9 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     </motion.span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">{showAllAccents ? "Show less" : "Show more"}</TooltipContent>
+                <TooltipContent side="bottom">
+                  {showAllAccents ? "Show less" : "Show more"}
+                </TooltipContent>
               </Tooltip>
             </div>
             <AnimatePresence initial={false}>
@@ -278,10 +363,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHeader
-          title="Sound"
-          description="Audio feedback when typing"
-        />
+        <SectionHeader title="Sound" description="Audio feedback when typing" />
         <ToggleRow
           label="Keyboard sound"
           description="Play sounds as you type each key"
@@ -305,7 +387,18 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             description="Choose your preferred keyboard aesthetic or layout"
           />
           <div className="mt-3 grid grid-cols-4 gap-2">
-            {(["normal", "magic", "rgb", "mechanical", "minimal", "split", "ortho", "compact"] as const).map((style) => {
+            {(
+              [
+                "normal",
+                "magic",
+                "rgb",
+                "mechanical",
+                "minimal",
+                "split",
+                "ortho",
+                "compact",
+              ] as const
+            ).map((style) => {
               const selected = keyboardStyle === style
               return (
                 <button
@@ -314,14 +407,14 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   onClick={() => setKeyboardStyle(style)}
                   aria-pressed={selected}
                   className={cn(
-                    "flex min-w-0 flex-col cursor-pointer items-center justify-between gap-2 rounded-lg border p-2 text-center transition-colors outline-none",
+                    "flex min-w-0 cursor-pointer flex-col items-center justify-between gap-2 rounded-lg border p-2 text-center transition-colors outline-none",
                     "hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     selected
                       ? "border-primary bg-primary/10 text-foreground"
                       : "border-input bg-background text-muted-foreground"
                   )}
                 >
-                  <div className="relative flex items-center justify-center h-8 font-mono text-xs font-bold">
+                  <div className="relative flex h-8 items-center justify-center font-mono text-xs font-bold">
                     {style === "normal" && "QWERTY"}
                     {style === "magic" && "MAGIC"}
                     {style === "rgb" && "RGB"}
@@ -331,7 +424,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     {style === "ortho" && "ORTHO"}
                     {style === "compact" && "60%"}
                   </div>
-                  <span className="w-full text-[10px] leading-tight font-medium truncate">
+                  <span className="w-full truncate text-[10px] leading-tight font-medium">
                     {style === "normal" && "Classic"}
                     {style === "magic" && "Flat Apple"}
                     {style === "rgb" && "RGB Glow"}
@@ -364,7 +457,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   onClick={() => setSoundPack(s.id)}
                   aria-pressed={selected}
                   className={cn(
-                    "flex min-w-0 flex-col cursor-pointer items-center justify-between gap-2 rounded-lg border p-2 text-center transition-colors outline-none",
+                    "flex min-w-0 cursor-pointer flex-col items-center justify-between gap-2 rounded-lg border p-2 text-center transition-colors outline-none",
                     "hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     selected
                       ? "border-primary bg-primary/10 text-foreground"
@@ -375,7 +468,10 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     <SwitchIcon pack={s.id} selected={selected} />
                     {selected && soundPackLoading && (
                       <div className="absolute inset-0 flex items-center justify-center rounded bg-background/50 backdrop-blur-[1px]">
-                        <IconLoader2 className="animate-spin text-primary" size={18} />
+                        <IconLoader2
+                          className="animate-spin text-primary"
+                          size={18}
+                        />
                       </div>
                     )}
                   </div>
@@ -395,15 +491,23 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         <div className="relative mt-3">
           <button
             type="button"
-            onClick={() => { setLangPickerOpen((v) => !v); setLangSearch("") }}
+            onClick={() => {
+              setLangPickerOpen((v) => !v)
+              setLangSearch("")
+            }}
             className={cn(
               "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
               "hover:bg-muted/50"
             )}
           >
-            <span className="min-w-0 truncate">{selectedLang?.name ?? language}</span>
+            <span className="min-w-0 truncate">
+              {selectedLang?.name ?? language}
+            </span>
             <CaretDownIcon
-              className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", langPickerOpen && "rotate-180")}
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                langPickerOpen && "rotate-180"
+              )}
               weight="bold"
             />
           </button>
@@ -415,7 +519,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="absolute top-[calc(100%+4px)] left-0 w-full z-50 overflow-hidden shadow-xl rounded-lg border border-border bg-background"
+                className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
               >
                 <div className="border-b border-border px-2 py-1.5">
                   <input
@@ -423,24 +527,32 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     placeholder="Search languages..."
                     value={langSearch}
                     onChange={(e) => setLangSearch(e.target.value)}
-                    className="w-full bg-transparent text-[16px] md:text-xs outline-none placeholder:text-muted-foreground"
+                    className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
                     autoFocus
                   />
                 </div>
-                <div className="flex flex-col p-1 max-h-48 overflow-y-auto custom-scrollbar">
+                <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
                   {(() => {
                     const q = langSearch.trim().toLowerCase()
                     const filtered = q
-                      ? languages.filter((l) => l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q))
+                      ? languages.filter(
+                          (l) =>
+                            l.name.toLowerCase().includes(q) ||
+                            l.code.toLowerCase().includes(q)
+                        )
                       : languages
                     return filtered.length > 0 ? (
                       filtered.map((l) => (
                         <button
                           type="button"
                           key={l.code}
-                          onClick={() => { setLanguage(l.code); setLangPickerOpen(false); setLangSearch("") }}
+                          onClick={() => {
+                            setLanguage(l.code)
+                            setLangPickerOpen(false)
+                            setLangSearch("")
+                          }}
                           className={cn(
-                            "flex w-full items-center rounded-md px-2 py-1.5 text-xs text-left transition-colors",
+                            "flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                             language === l.code
                               ? "bg-primary/10 text-primary"
                               : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -450,7 +562,9 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                         </button>
                       ))
                     ) : (
-                      <p className="py-4 text-center text-xs text-muted-foreground">No languages found</p>
+                      <p className="py-4 text-center text-xs text-muted-foreground">
+                        No languages found
+                      </p>
                     )
                   })()}
                 </div>
@@ -468,17 +582,26 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             <div className="relative mt-3">
               <button
                 type="button"
-                onClick={() => { setFontPickerOpen((v) => !v); setFontSearch("") }}
+                onClick={() => {
+                  setFontPickerOpen((v) => !v)
+                  setFontSearch("")
+                }}
                 className={cn(
                   "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
                   "hover:bg-muted/50"
                 )}
               >
-                <span className="min-w-0 truncate" style={{ fontFamily: selectedFont?.cssFamily }}>
+                <span
+                  className="min-w-0 truncate"
+                  style={{ fontFamily: selectedFont?.cssFamily }}
+                >
                   {selectedFont?.label ?? font}
                 </span>
                 <CaretDownIcon
-                  className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", fontPickerOpen && "rotate-180")}
+                  className={cn(
+                    "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                    fontPickerOpen && "rotate-180"
+                  )}
                   weight="bold"
                 />
               </button>
@@ -490,7 +613,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="absolute top-[calc(100%+4px)] left-0 w-full z-50 overflow-hidden shadow-xl rounded-lg border border-border bg-background"
+                    className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
                   >
                     <div className="border-b border-border px-2 py-1.5">
                       <input
@@ -498,47 +621,81 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                         placeholder="Search fonts..."
                         value={fontSearch}
                         onChange={(e) => setFontSearch(e.target.value)}
-                        className="w-full bg-transparent text-[16px] md:text-xs outline-none placeholder:text-muted-foreground"
+                        className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
                         autoFocus
                       />
                     </div>
-                    <div className="flex flex-col p-1 max-h-48 overflow-y-auto custom-scrollbar">
+                    <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
                       {(() => {
                         const q = fontSearch.trim().toLowerCase()
                         const filtered = q
-                          ? FONT_OPTIONS.filter((f) => f.label.toLowerCase().includes(q) || (f.tag ?? "").toLowerCase().includes(q))
+                          ? FONT_OPTIONS.filter(
+                              (f) =>
+                                f.label.toLowerCase().includes(q) ||
+                                (f.tag ?? "").toLowerCase().includes(q)
+                            )
                           : null
 
-                        const renderItem = (f: (typeof FONT_OPTIONS)[number]) => (
+                        const renderItem = (
+                          f: (typeof FONT_OPTIONS)[number]
+                        ) => (
                           <button
                             type="button"
                             key={f.id}
-                            onClick={() => { setFont(f.id); setFontPickerOpen(false); setFontSearch("") }}
+                            onClick={() => {
+                              setFont(f.id)
+                              setFontPickerOpen(false)
+                              setFontSearch("")
+                            }}
                             className={cn(
-                              "flex w-full items-center rounded-md px-2 py-1.5 text-xs transition-colors text-left",
-                              font === f.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              "flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                              font === f.id
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                           >
-                            <span style={{ fontFamily: f.cssFamily }}>{f.label}</span>
+                            <span style={{ fontFamily: f.cssFamily }}>
+                              {f.label}
+                            </span>
                           </button>
                         )
 
                         if (filtered) {
-                          return filtered.length > 0 ? filtered.map(renderItem) : (
-                            <p className="py-4 text-center text-xs text-muted-foreground">No fonts found</p>
+                          return filtered.length > 0 ? (
+                            filtered.map(renderItem)
+                          ) : (
+                            <p className="py-4 text-center text-xs text-muted-foreground">
+                              No fonts found
+                            </p>
                           )
                         }
 
                         return (
                           <>
-                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Mono</p>
-                            {FONT_OPTIONS.filter((f) => f.tag === "mono").map(renderItem)}
-                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Display</p>
-                            {FONT_OPTIONS.filter((f) => f.tag === "display").map(renderItem)}
-                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Serif</p>
-                            {FONT_OPTIONS.filter((f) => f.tag === "serif").map(renderItem)}
-                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Handwriting</p>
-                            {FONT_OPTIONS.filter((f) => f.tag === "handwriting").map(renderItem)}
+                            <p className="px-2 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+                              Mono
+                            </p>
+                            {FONT_OPTIONS.filter((f) => f.tag === "mono").map(
+                              renderItem
+                            )}
+                            <p className="px-2 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+                              Display
+                            </p>
+                            {FONT_OPTIONS.filter(
+                              (f) => f.tag === "display"
+                            ).map(renderItem)}
+                            <p className="px-2 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+                              Serif
+                            </p>
+                            {FONT_OPTIONS.filter((f) => f.tag === "serif").map(
+                              renderItem
+                            )}
+                            <p className="px-2 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+                              Handwriting
+                            </p>
+                            {FONT_OPTIONS.filter(
+                              (f) => f.tag === "handwriting"
+                            ).map(renderItem)}
                           </>
                         )
                       })()}
@@ -660,7 +817,9 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         />
         {paceBotEnabled && (
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">Bot Target Speed</span>
+            <span className="text-xs text-muted-foreground">
+              Bot Target Speed
+            </span>
             <div className="flex gap-1.5">
               {[40, 60, 80, 100, 120].map((spd) => (
                 <button
@@ -668,9 +827,9 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   type="button"
                   onClick={() => setPaceBotWpm(spd)}
                   className={cn(
-                    "px-2 py-1 text-xs rounded border border-border font-mono transition-colors",
+                    "rounded border border-border px-2 py-1 font-mono text-xs transition-colors",
                     paceBotWpm === spd
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "border-primary bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -705,13 +864,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           </AnimatePresence>
         </div>
       </section>
-
     </div>
   )
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={(v) => { if (!v) closeAndRefocusTypingInput() }}>
+      <Drawer
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) closeAndRefocusTypingInput()
+        }}
+      >
         <DrawerContent className="max-h-[90dvh]">
           <DrawerTitle className="sr-only">Settings</DrawerTitle>
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -772,7 +935,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 }
 
 const SWITCH_STEM_COLORS: Record<SoundPack, string> = {
-  "default": "var(--color-primary)",
+  default: "var(--color-primary)",
   "cherrymx-black-pbt": "#2b2b2b",
   "cherrymx-blue-pbt": "#2f6fe0",
   "cherrymx-brown-pbt": "#8a5a2b",
@@ -780,11 +943,17 @@ const SWITCH_STEM_COLORS: Record<SoundPack, string> = {
   "mx-speed-silver": "#c4ccd4",
   "eg-oreo": "#1a1a2e",
   "topre-purple": "#8b5cf6",
-  "creams": "#f0d9c6",
+  creams: "#f0d9c6",
   "banana-split-lubed": "#ffe135",
 }
 
-function SwitchIcon({ pack, selected }: { pack: SoundPack; selected: boolean }) {
+function SwitchIcon({
+  pack,
+  selected,
+}: {
+  pack: SoundPack
+  selected: boolean
+}) {
   const stem = SWITCH_STEM_COLORS[pack]
   const isBlack = pack === "cherrymx-black-pbt" || pack === "eg-oreo"
 
@@ -872,7 +1041,9 @@ function SectionHeader({
       <p className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
         {title}
       </p>
-      <p className="text-[10px] text-muted-foreground/60 leading-snug">{description}</p>
+      <p className="text-[10px] leading-snug text-muted-foreground/60">
+        {description}
+      </p>
     </div>
   )
 }
@@ -918,7 +1089,7 @@ function ToggleRow({
           {label}
         </span>
         {description && (
-          <span className="text-[10px] text-muted-foreground/50 leading-snug">
+          <span className="text-[10px] leading-snug text-muted-foreground/50">
             {description}
           </span>
         )}
@@ -943,23 +1114,5 @@ function ToggleRow({
         />
       </button>
     </div>
-  )
-}
-
-function KeyboardStyleNormalIcon({ selected }: { selected: boolean }) {
-  return (
-    <svg viewBox="0 0 48 48" width={32} height={32} className={cn("shrink-0 transition-opacity", !selected && "opacity-80")}>
-      <rect x="6" y="6" width="36" height="36" rx="4" className="fill-muted-foreground/30" />
-      <rect x="10" y="8" width="28" height="24" rx="3" className="fill-muted-foreground/50" />
-    </svg>
-  )
-}
-
-function KeyboardStyleMagicIcon({ selected }: { selected: boolean }) {
-  return (
-    <svg viewBox="0 0 48 48" width={32} height={32} className={cn("shrink-0 transition-opacity", !selected && "opacity-80")}>
-      <rect x="4" y="16" width="40" height="16" rx="2" className="fill-muted-foreground/20 stroke-muted-foreground/40" strokeWidth="1" />
-      <rect x="6" y="18" width="36" height="12" rx="1" className="fill-muted-foreground/40" />
-    </svg>
   )
 }
