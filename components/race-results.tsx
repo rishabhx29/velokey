@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "motion/react"
+import { useRouter } from "next/navigation"
 import {
   IconTrophy,
   IconRefresh,
@@ -17,6 +18,7 @@ interface RaceResultsProps {
 }
 
 export function RaceResults({ connection }: RaceResultsProps) {
+  const router = useRouter()
   const { leaderboard, myPlayerId, isHost, rematch, disconnect, roomConfig } =
     connection
 
@@ -196,7 +198,7 @@ export function RaceResults({ connection }: RaceResultsProps) {
         <button
           onClick={() => {
             disconnect()
-            window.location.href = "/"
+            router.push("/")
           }}
           className="flex cursor-pointer items-center gap-2 rounded-xl border-2 border-border/60 bg-muted/30 px-6 py-3.5 text-sm font-bold text-foreground transition-colors hover:border-border hover:bg-muted/50 active:scale-95"
         >

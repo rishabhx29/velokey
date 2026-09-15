@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { motion } from "motion/react"
+import { useRouter } from "next/navigation"
 import {
   IconCopy,
   IconCheck,
@@ -27,6 +28,7 @@ interface RaceLobbyProps {
 }
 
 export function RaceLobby({ connection }: RaceLobbyProps) {
+  const router = useRouter()
   const {
     roomConfig,
     players,
@@ -202,7 +204,7 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
         <button
           onClick={() => {
             disconnect()
-            window.location.href = "/" // hard redirect to root
+            router.push("/")
           }}
           className="flex cursor-pointer items-center gap-2 rounded-xl border border-destructive/20 px-5 py-3 text-sm font-semibold text-destructive/80 transition-colors hover:bg-destructive/10 hover:text-destructive active:scale-95"
         >
