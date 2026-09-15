@@ -53,39 +53,11 @@ import {
 
 import { BRAINROT_WORDS } from "@/lib/brainrot"
 import { markPerformance, measurePerformance } from "@/lib/performance-metrics"
-
-function customTextToWords(text: string): string[] {
-  return text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean)
-}
-
-function parseCodeContent(content: string): {
-  words: string[]
-  lineLengths: number[]
-  lineIndents: number[]
-} {
-  const lines = content.split("\n")
-  const lineLengths: number[] = []
-  const lineIndents: number[] = []
-  const allWords: string[] = []
-  for (const line of lines) {
-    const leadingSpaces = line.match(/^(\s*)/)?.[1] ?? ""
-    const tabCount = (leadingSpaces.match(/\t/g) ?? []).length
-    const spaceCount = leadingSpaces.replace(/\t/g, "").length
-    const indent = tabCount + Math.floor(spaceCount / 2)
-    const lineWords = line.split(/\s+/).filter((w) => w.length > 0)
-    lineLengths.push(lineWords.length)
-    lineIndents.push(indent)
-    allWords.push(...lineWords)
-  }
-  return {
-    words: allWords.filter((w) => w.length > 0),
-    lineLengths,
-    lineIndents,
-  }
-}
-
-const getCommentPrefix = (lang: string): string =>
-  lang === "shell" || lang === "bash" ? "#" : lang === "lua" ? "--" : "//"
+import {
+  customTextToWords,
+  getCommentPrefix,
+  parseCodeContent,
+} from "@/lib/text-parsing"
 
 type ResetOverrides = Partial<{
   mode: TestMode
