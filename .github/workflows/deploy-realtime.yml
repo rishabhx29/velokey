@@ -1,7 +1,13 @@
 name: Deploy Realtime
 
-# Deploys the PartyKit multiplayer service independently of the web app,
-# matching the repo's architecture: `realtime/` is its own service.
+# The realtime race server runs on Render (velokey.onrender.com), not PartyKit
+# Cloud. Trigger a Render deploy when server code changes by adding the
+# service's Deploy Hook URL as the RENDER_DEPLOY_HOOK_URL repository secret
+# (Render dashboard → service → Settings → Deploy Hook).
+#
+# PartyKit Cloud deploys are intentionally not used: the partykit.dev zone hit
+# Cloudflare's 10k custom-domain limit (partykit/partykit#985) and the managed
+# platform rejects all new deploys until that is resolved.
 
 on:
   push:
@@ -19,7 +25,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy PartyKit race server
+    name: Trigger Render deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,13 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck realtime + shared
+      - name: Typecheck
         run: npm run typecheck
 
-      - name: Deploy
-        # Set PARTYKIT_TOKEN (and optionally PARTYKIT_ORG / PARTYKIT_PROJECT)
-        # in the repository's Actions secrets. Create the token with
-        # `npx partykit login` → Settings → Tokens on partykit.io.
-        run: npm run realtime:deploy
-        env:
-          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
+      - name: Trigger Render deploy hook
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' && echo "Render deploy triggered"
