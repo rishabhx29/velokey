@@ -1,30 +1,30 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 
 interface RaceCountdownProps {
   countdown: number | null
 }
 
+/**
+ * Fully derived from the hook's countdown state — no internal timers.
+ *
+ * The connection hook sets `countdown` to 3, 2, 1, then 0, and nulls it
+ * ~900ms after reaching 0 (tracked timeout). So: numbers render while
+ * counting down, GO renders while the value is 0, and the overlay
+ * disappears the moment the hook clears the value. A stuck "GO!" screen
+ * (the overlay used to hide itself with its own setTimeout, which could
+ * be cancelled mid-flight) is structurally impossible now.
+ */
 export function RaceCountdown({ countdown }: RaceCountdownProps) {
-  const [showGo, setShowGo] = useState(false)
-
-  useEffect(() => {
-    if (countdown === 0) {
-      queueMicrotask(() => setShowGo(true))
-      const t = setTimeout(() => setShowGo(false), 800)
-      return () => clearTimeout(t)
-    }
-  }, [countdown])
-
-  // Don't render anything if there's no active countdown or GO message
-  if (countdown === null && !showGo) return null
+  const showNumber = countdown !== null && countdown > 0
+  const showGo = countdown === 0
+  if (!showNumber && !showGo) return null
 
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm transition-all">
       <AnimatePresence mode="wait">
-        {countdown !== null && countdown > 0 ? (
+        {showNumber ? (
           <motion.div
             key={`count-${countdown}`}
             initial={{ opacity: 0, scale: 0.5, y: 20 }}
@@ -35,7 +35,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
           >
             {countdown}
           </motion.div>
-        ) : showGo ? (
+        ) : (
           <motion.div
             key="go"
             initial={{ opacity: 0, scale: 0.5, y: 20 }}
@@ -46,7 +46,7 @@ export function RaceCountdown({ countdown }: RaceCountdownProps) {
           >
             GO!
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
     </div>
   )

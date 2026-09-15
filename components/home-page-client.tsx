@@ -11,33 +11,49 @@ import { useSettings, SOUND_PACKS } from "@/components/settings-context"
 import { Loading } from "@/components/ui/loader"
 import { IconKeyboardShow, IconKeyboardHide } from "@tabler/icons-react"
 
+// Skeleton mirroring the real keyboard's rendered footprint (the classic
+// keyboard is ~306px tall before its responsive [zoom:*] classes — mirrored
+// here — so the reserved height matches at every breakpoint). Without this,
+// the footer collapses to 0 height until the dynamic chunk arrives, and the
+// vertically-centered text visibly jumps up after a refresh.
+function KeyboardSkeleton() {
+  return (
+    <div
+      aria-hidden
+      className="flex h-[306px] w-[980px] max-w-[90vw] [zoom:0.55] items-center justify-center rounded-[16px] border border-border/50 bg-muted/20 sm:[zoom:0.7] md:[zoom:0.65] lg:[zoom:0.85] xl:[zoom:1.15]"
+    >
+      <Loading className="h-5 w-5" />
+    </div>
+  )
+}
+
 const Keyboard = dynamic(
   () => import("@/components/ui/keyboard").then((module) => module.Keyboard),
-  { ssr: false }
+  { ssr: false, loading: () => <KeyboardSkeleton /> }
 )
 const MagicKeyboard = dynamic(
   () =>
     import("@/components/ui/magic-keyboard").then((module) => module.Keyboard),
-  { ssr: false }
+  { ssr: false, loading: () => <KeyboardSkeleton /> }
 )
 const RGBKeyboard = dynamic(
   () =>
     import("@/components/ui/rgb-keyboard").then((module) => module.RGBKeyboard),
-  { ssr: false }
+  { ssr: false, loading: () => <KeyboardSkeleton /> }
 )
 const MechanicalKeyboard = dynamic(
   () =>
     import("@/components/ui/mechanical-keyboard").then(
       (module) => module.MechanicalKeyboard
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <KeyboardSkeleton /> }
 )
 const MinimalKeyboard = dynamic(
   () =>
     import("@/components/ui/minimal-keyboard").then(
       (module) => module.MinimalKeyboard
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <KeyboardSkeleton /> }
 )
 
 export default function Page() {

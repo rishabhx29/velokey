@@ -120,25 +120,31 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
             />
 
             <div className="relative w-full">
-              <TypingTest
-                raceWords={words.length > 0 ? words : undefined}
-                raceMode={raceMode || undefined}
-                raceTimeOption={raceTimeOption || undefined}
-                raceWordOption={raceWordOption || undefined}
-                hideControls={true}
-                disabled={roomStatus === "countdown"}
-                onProgressUpdate={(prog) => {
-                  sendProgress(
-                    prog.wordIndex,
-                    prog.totalWords,
-                    prog.wpm,
-                    prog.accuracy
-                  )
-                }}
-                onRaceFinish={(stats) => {
-                  sendFinish(stats)
-                }}
-              />
+              {/* Gate on server words: before they arrive the engine would mount
+                  with fallback solo words, flash the wrong text, then reset when
+                  the real race words land (visible on every rejoin/refresh). */}
+              {words.length > 0 && (
+                <TypingTest
+                  raceWords={words}
+                  raceMode={raceMode || undefined}
+                  raceTimeOption={raceTimeOption || undefined}
+                  raceWordOption={raceWordOption || undefined}
+                  hideControls={true}
+                  standaloneLayout={true}
+                  disabled={roomStatus === "countdown"}
+                  onProgressUpdate={(prog) => {
+                    sendProgress(
+                      prog.wordIndex,
+                      prog.totalWords,
+                      prog.wpm,
+                      prog.accuracy
+                    )
+                  }}
+                  onRaceFinish={(stats) => {
+                    sendFinish(stats)
+                  }}
+                />
+              )}
             </div>
 
             <RaceCountdown countdown={countdown} />

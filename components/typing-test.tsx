@@ -36,6 +36,8 @@ interface TypingTestProps {
   onRaceFinish?: (stats: ResultStats) => void
   hideControls?: boolean
   disabled?: boolean
+  /** No keyboard footer below (race page): vertically center the test. */
+  standaloneLayout?: boolean
 }
 
 export function TypingTest(props: TypingTestProps) {
@@ -278,7 +280,7 @@ export function TypingTest(props: TypingTestProps) {
     <div
       className={cn(
         "flex w-full max-w-site flex-col items-center gap-3 transition-all duration-150 ease-out",
-        !showKeyboard && "flex-1"
+        (props.standaloneLayout || !showKeyboard) && "flex-1"
       )}
       style={{
         opacity: screenFade,
@@ -319,7 +321,8 @@ export function TypingTest(props: TypingTestProps) {
       <div
         className={cn(
           "flex w-full flex-col items-center gap-3",
-          !showKeyboard && "flex-1 justify-center pb-20"
+          (props.standaloneLayout || !showKeyboard) &&
+            "flex-1 justify-center pb-20"
         )}
       >
         {/* Words display */}

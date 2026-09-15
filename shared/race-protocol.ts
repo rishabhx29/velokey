@@ -13,8 +13,11 @@ export const MIN_PLAYERS = 2
 export const COUNTDOWN_SECONDS = 3
 export const ROOM_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 export const QUICK_MATCH_WAIT_MS = 15 * 1000 // 15 seconds before auto-start
-export const PROGRESS_THROTTLE_MS = 500
-export const PROGRESS_BROADCAST_MS = 250
+// Client→server progress send throttle. 200ms keeps the live bar responsive
+// (worst-case visual latency ≈ 200ms send + 250ms server broadcast) while
+// still capping traffic at 5 msg/s per player.
+export const PROGRESS_THROTTLE_MS = 200
+export const PROGRESS_BROADCAST_MS = 200
 export const DISCONNECT_GRACE_MS = 10 * 1000
 export const MATCHMAKER_ROOM_ID = "__velokey_matchmaker__"
 // Quick-match batching: instead of pairing players 1:1 into separate rooms,

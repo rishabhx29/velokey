@@ -96,6 +96,8 @@ interface UseTypingTestProps {
   }) => void
   onRaceFinish?: (stats: ResultStats) => void
   disabled?: boolean
+  /** No keyboard footer is rendered below (race page): center the text vertically. */
+  standaloneLayout?: boolean
 }
 
 export function useTypingTest({
@@ -209,7 +211,10 @@ export function useTypingTest({
     if (!onProgressUpdate || !started || finished) return
     const now = performance.now()
     const changedWord = wordIndex !== lastProgressWordRef.current
-    if (!changedWord && now - lastProgressUpdateRef.current < 500) return
+    // Non-word-change updates (WPM/accuracy ticks) at most every 250ms —
+    // aligned with the server's PROGRESS_BROADCAST_MS so neither side waits
+    // on the other.
+    if (!changedWord && now - lastProgressUpdateRef.current < 250) return
     lastProgressUpdateRef.current = now
     lastProgressWordRef.current = wordIndex
     const elapsedSec = startTime ? (Date.now() - startTime) / 1000 : 0

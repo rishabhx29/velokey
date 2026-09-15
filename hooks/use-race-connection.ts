@@ -167,14 +167,15 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
         case "countdown":
           setCountdown(msg.value)
           if (msg.value <= 0) {
-            // Countdown finished, clear after a brief delay. Tracked so the
-            // timer cannot fire after unmount (leaked setTimeout).
+            // Countdown finished. Hold the value at 0 for 900ms so the GO
+            // overlay renders (it is fully derived from this state), then
+            // clear. Tracked so the timer cannot fire after unmount.
             if (countdownClearRef.current)
               clearTimeout(countdownClearRef.current)
             countdownClearRef.current = setTimeout(() => {
               countdownClearRef.current = null
               setCountdown(null)
-            }, 600)
+            }, 900)
           }
           break
 
