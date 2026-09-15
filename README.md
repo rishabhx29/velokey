@@ -22,9 +22,9 @@ Settings are stored in `localStorage` in the browser.
 ## Prerequisites
 
 - **Node.js** 20+ (LTS recommended)
-- **pnpm** 9+ (used in the commands below)
+- **npm** 10+ (used in the commands below)
 
-If you use npm or Yarn, run the equivalent of `install` and the scripts from `package.json`.
+If you use pnpm or Yarn, run the equivalent of `install` and the scripts from `package.json`.
 
 ---
 
@@ -40,7 +40,7 @@ If you use npm or Yarn, run the equivalent of `install` and the scripts from `pa
 2. **Install dependencies**
 
    ```bash
-   pnpm install
+   npm install
    ```
 
    This installs all packages and runs **`postinstall`**, which copies quote text from the `inspirational-quotes` package into `data/quotes.json` and generates required data files.
@@ -54,8 +54,8 @@ If you use npm or Yarn, run the equivalent of `install` and the scripts from `pa
 4. **Run the web and realtime servers in separate terminals**
 
    ```bash
-   pnpm dev
-   pnpm realtime:dev
+   npm run dev
+   npm run realtime:dev
    ```
 
 5. **Open the site**
@@ -67,14 +67,14 @@ If you use npm or Yarn, run the equivalent of `install` and the scripts from `pa
 ## Production Build
 
 ```bash
-pnpm build
-pnpm start
+npm run build
+npm run start
 ```
 
 The multiplayer service is deployed independently from the Next.js app:
 
 ```bash
-pnpm realtime:deploy
+npm run realtime:deploy
 ```
 
 Set `NEXT_PUBLIC_PARTYKIT_HOST` in the web deployment to the PartyKit host
@@ -87,7 +87,7 @@ the typing-race WebSocket does not pass through the Next.js server.
 - `realtime/` is the authoritative PartyKit game service, deployed and scaled independently.
 - `shared/` contains the race protocol consumed by both sides. It must remain runtime-neutral.
 
-By default the app listens on port **3000** (`next start`). Use `pnpm start -- -p 4000` (or your host’s process manager) to change the port.
+By default the app listens on port **3000** (`next start`). Use `npm run start -- -p 4000` (or your host’s process manager) to change the port.
 
 ---
 
@@ -99,23 +99,23 @@ Audio uses the **Web Audio API**. Many browsers only unlock audio after a **user
 
 ## Project Scripts
 
-| Command                | Description                     |
-| ---------------------- | ------------------------------- |
-| `pnpm dev`             | Development server (Turbopack)  |
-| `pnpm realtime:dev`    | PartyKit multiplayer server     |
-| `pnpm realtime:deploy` | Deploy the multiplayer server   |
-| `pnpm build`           | Optimized production build      |
-| `pnpm start`           | Serve the production build      |
-| `pnpm lint`            | Run ESLint                      |
-| `pnpm typecheck`       | Run TypeScript (`tsc --noEmit`) |
-| `pnpm format`          | Format TS/TSX with Prettier     |
+| Command                   | Description                     |
+| ------------------------- | ------------------------------- |
+| `npm run dev`             | Development server (webpack)    |
+| `npm run realtime:dev`    | PartyKit multiplayer server     |
+| `npm run realtime:deploy` | Deploy the multiplayer server   |
+| `npm run build`           | Optimized production build      |
+| `npm run start`           | Serve the production build      |
+| `npm run lint`            | Run ESLint                      |
+| `npm run typecheck`       | Run TypeScript (`tsc --noEmit`) |
+| `npm run format`          | Format TS/TSX with Prettier     |
 
 ---
 
 ## Tech Stack
 
 - [Next.js](https://nextjs.org) (App Router), React 19, TypeScript
-- Styling: Tailwind CSS, shadcn-style UI (Radix primitives, cmdk)
+- Styling: Tailwind CSS, shadcn-style UI (Radix primitives)
 - Charts: Recharts
 - Motion: [Motion](https://motion.dev)
 - Words / quotes: `random-words`, `inspirational-quotes`
