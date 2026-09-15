@@ -1,64 +1,87 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 
 interface CustomTimeDialogProps {
-  timeOption: number;
-  onSave: (next: number) => void;
-  trigger: React.ReactNode;
+  timeOption: number
+  onSave: (next: number) => void
+  trigger: React.ReactNode
 }
 
-export function CustomTimeDialog({ timeOption, onSave, trigger }: CustomTimeDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
+export function CustomTimeDialog({
+  timeOption,
+  onSave,
+  trigger,
+}: CustomTimeDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState("")
 
   useEffect(() => {
     if (open) {
-      queueMicrotask(() => setValue(timeOption.toString()));
+      queueMicrotask(() => setValue(timeOption.toString()))
     }
-  }, [open, timeOption]);
+  }, [open, timeOption])
 
-  function handleSave() {
-    let seconds = 0;
-    const trimmed = value.trim();
-    if (!trimmed) return;
+  const MAX_SECONDS = 3600
 
-    if (trimmed.includes("h") || trimmed.includes("m")) {
-      const hMatch = trimmed.match(/(\d+)h/);
-      const mMatch = trimmed.match(/(\d+)m/);
-      if (hMatch) seconds += parseInt(hMatch[1], 10) * 3600;
-      if (mMatch) seconds += parseInt(mMatch[1], 10) * 60;
-    } else {
-      const parsed = parseInt(trimmed, 10);
-      if (!isNaN(parsed)) seconds = parsed;
+  // Parse "90", "1h30m", "2h", "45m" → seconds. Returns null for invalid input.
+  function parseDuration(trimmed: string): number | null {
+    if (trimmed.length === 0) return null
+    if (/^\d+$/.test(trimmed)) {
+      const n = parseInt(trimmed, 10)
+      return Number.isFinite(n) ? n : null
     }
-
-    if (seconds >= 0) {
-      onSave(seconds);
-      setOpen(false);
+    if (/^\d+h(\d+m)?$|^\d+m$/.test(trimmed)) {
+      const hMatch = trimmed.match(/(\d+)h/)
+      const mMatch = trimmed.match(/(\d+)m/)
+      let seconds = 0
+      if (hMatch) seconds += parseInt(hMatch[1], 10) * 3600
+      if (mMatch) seconds += parseInt(mMatch[1], 10) * 60
+      return seconds
     }
+    return null
   }
 
-  // Determine subtext based on current value
-  let subtext = "";
-  if (value === "0") {
-    subtext = "infinite";
-  } else {
-    let s = 0;
-    const trimmed = value.trim();
-    if (trimmed.includes("h") || trimmed.includes("m")) {
-      const hMatch = trimmed.match(/(\d+)h/);
-      const mMatch = trimmed.match(/(\d+)m/);
-      if (hMatch) s += parseInt(hMatch[1], 10) * 3600;
-      if (mMatch) s += parseInt(mMatch[1], 10) * 60;
-    } else {
-      const parsed = parseInt(trimmed, 10);
-      if (!isNaN(parsed)) s = parsed;
+  function handleSave() {
+    const seconds = parseDuration(value.trim())
+    // 0 is rejected: there is no infinite mode — the timer would end the
+    // test after a single tick.
+    if (seconds === null || seconds <= 0 || seconds > MAX_SECONDS) {
+      return
     }
-    if (s === 1) subtext = "1 second";
-    else if (s > 1) subtext = `${s} seconds`;
+    onSave(seconds)
+    setOpen(false)
+  }
+
+  const invalid = (() => {
+    const seconds = parseDuration(value.trim())
+    return (
+      value.trim() !== "" &&
+      (seconds === null || seconds <= 0 || seconds > MAX_SECONDS)
+    )
+  })()
+
+  // Determine subtext based on current value
+  let subtext = ""
+  if (value.trim() === "") {
+    subtext = ""
+  } else if (invalid) {
+    subtext = "enter 1–3600 seconds (e.g. 90, 1h30m, 45m)"
+  } else {
+    const seconds = parseDuration(value.trim())!
+    if (seconds === 1) subtext = "1 second"
+    else if (seconds % 3600 === 0 && seconds >= 3600)
+      subtext = `${seconds / 3600} hour${seconds > 3600 ? "s" : ""}`
+    else if (seconds % 60 === 0 && seconds >= 60)
+      subtext = `${seconds / 60} minute${seconds > 60 ? "s" : ""}`
+    else subtext = `${seconds} seconds`
   }
 
   return (
@@ -66,11 +89,11 @@ export function CustomTimeDialog({ timeOption, onSave, trigger }: CustomTimeDial
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         className={cn(
-          "sm:max-w-[420px] w-[min(420px,calc(100vw-2rem))]",
-          "p-0 overflow-hidden bg-zinc-100 dark:bg-[#111111] border border-border rounded-xl shadow-2xl",
+          "w-[min(420px,calc(100vw-2rem))] sm:max-w-[420px]",
+          "overflow-hidden rounded-xl border border-border bg-zinc-100 p-0 shadow-2xl dark:bg-[#111111]",
           "duration-300 ease-out",
           "data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-bottom-2",
-          "data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-bottom-2",
+          "data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-bottom-2"
         )}
       >
         <div className="flex flex-col gap-6 p-6">
@@ -88,33 +111,32 @@ export function CustomTimeDialog({ timeOption, onSave, trigger }: CustomTimeDial
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSave();
+                  e.preventDefault()
+                  handleSave()
                 }
               }}
-              className="w-full bg-zinc-200/50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-lg px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1 focus:ring-primary transition-colors font-mono"
+              className="w-full rounded-lg border border-zinc-300 bg-zinc-200/50 px-4 py-3 font-mono text-sm text-zinc-900 transition-colors outline-none focus:ring-1 focus:ring-primary dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
               autoFocus
             />
           </div>
 
-          <div className="flex flex-col gap-4 text-[13px] text-zinc-600 dark:text-zinc-400 leading-relaxed font-mono">
+          <div className="flex flex-col gap-4 font-mono text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
             <p>
-              You can use &quot;h&quot; for hours and &quot;m&quot; for minutes, for example &quot;1h30m&quot;.
-            </p>
-            <p>
-              You can start an infinite test by inputting 0. Then, to stop the test, use the Bail Out feature: (<kbd className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-300 px-1 py-0.5 rounded text-[11px]">esc</kbd> or <kbd className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-300 px-1 py-0.5 rounded text-[11px]">ctrl/cmd</kbd> + <kbd className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-300 px-1 py-0.5 rounded text-[11px]">shift</kbd> + <kbd className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-300 px-1 py-0.5 rounded text-[11px]">p</kbd> &gt; Bail Out)
+              You can use &quot;h&quot; for hours and &quot;m&quot; for minutes,
+              for example &quot;1h30m&quot;. Maximum is 1 hour.
             </p>
           </div>
 
           <button
             type="button"
             onClick={handleSave}
-            className="w-full bg-zinc-200/80 hover:bg-zinc-200 dark:bg-zinc-900 hover:dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 hover:dark:text-zinc-100 rounded-lg py-2.5 text-sm font-medium transition-colors font-mono cursor-pointer"
+            disabled={invalid}
+            className="w-full cursor-pointer rounded-lg border border-zinc-300 bg-zinc-200/80 py-2.5 font-mono text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-200 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 hover:dark:bg-zinc-800 hover:dark:text-zinc-100"
           >
             apply
           </button>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

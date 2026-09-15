@@ -3,15 +3,15 @@
 import { AnimatePresence, motion, LayoutGroup } from "motion/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { IconLock, IconPointer, IconRefresh } from "@tabler/icons-react"
-import { ResultsScreen } from "@/components/results-screen"
+import { ResultsScreen, type ResultStats } from "@/components/results-screen"
 import { TestControls, type CodeManifest } from "@/components/test-controls"
 import { WordItem } from "@/components/word-item"
 import { useTypingTest } from "@/hooks/use-typing-test"
 import { useSettings } from "@/components/settings-context"
 import { useAppChrome } from "@/components/app-chrome"
 import { cn } from "@/lib/utils"
-import { useShikiTokens } from "@/hooks/use-shiki";
-import { CODE_MANIFEST, getCodeContent } from "@/lib/code";
+import { useShikiTokens } from "@/hooks/use-shiki"
+import { CODE_MANIFEST, getCodeContent } from "@/lib/code"
 import { useTheme } from "next-themes"
 
 interface TypingTestProps {
@@ -21,23 +21,44 @@ interface TypingTestProps {
   onFocusChange?: (focused: boolean) => void
   onModeChange?: (mode: string) => void
   pauseTypingInputRefocus?: boolean
-  
+
   // Multiplayer overrides
   raceWords?: string[]
   raceMode?: "words" | "time"
   raceTimeOption?: number
   raceWordOption?: number
-  onProgressUpdate?: (prog: { wordIndex: number, totalWords: number, wpm: number, accuracy: number }) => void
-  onRaceFinish?: (stats: any) => void
+  onProgressUpdate?: (prog: {
+    wordIndex: number
+    totalWords: number
+    wpm: number
+    accuracy: number
+  }) => void
+  onRaceFinish?: (stats: ResultStats) => void
   hideControls?: boolean
-  hideResults?: boolean
   disabled?: boolean
 }
 
 export function TypingTest(props: TypingTestProps) {
-  const { realtimeWpm, faahMode, ghostMode, shakeMode, fontSize, syntaxHighlighting, showKeyboard, showLineNumbers, paceBotEnabled, paceBotWpm } = useSettings()
+  const {
+    realtimeWpm,
+    faahMode,
+    ghostMode,
+    shakeMode,
+    fontSize,
+    syntaxHighlighting,
+    showKeyboard,
+    showLineNumbers,
+    paceBotEnabled,
+    paceBotWpm,
+  } = useSettings()
   const { resolvedTheme } = useTheme()
-  const fontSizeRem = { xs: "1rem", sm: "1.25rem", md: "1.5rem", lg: "1.875rem", xl: "2.25rem" }[fontSize]
+  const fontSizeRem = {
+    xs: "1rem",
+    sm: "1.25rem",
+    md: "1.5rem",
+    lg: "1.875rem",
+    xl: "2.25rem",
+  }[fontSize]
   const faahAudioRef = useRef<HTMLAudioElement | null>(null)
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [codeManifest] = useState<CodeManifest>(() => CODE_MANIFEST)
@@ -120,8 +141,8 @@ export function TypingTest(props: TypingTestProps) {
     onCodeLanguageChange,
     onCodeChapterChange,
     onRestart,
-  } = useTypingTest({ 
-    ...props, 
+  } = useTypingTest({
+    ...props,
     onWrongKey,
     pauseTypingInputRefocus: props.pauseTypingInputRefocus,
     raceWords: props.raceWords,
@@ -133,22 +154,27 @@ export function TypingTest(props: TypingTestProps) {
     disabled: props.disabled,
   })
 
-  const onModeChange = useCallback((next: string) => {
-    onModeChangeInternal(next as Parameters<typeof onModeChangeInternal>[0])
-    props.onModeChange?.(next)
-  }, [onModeChangeInternal, props])
+  const onModeChange = useCallback(
+    (next: string) => {
+      onModeChangeInternal(next as Parameters<typeof onModeChangeInternal>[0])
+      props.onModeChange?.(next)
+    },
+    [onModeChangeInternal, props]
+  )
 
   // Expose practice-start to the header dashboard via the shared chrome ref.
   const { startPracticeRef } = useAppChrome()
   useEffect(() => {
     startPracticeRef.current = handleResultsPractice
-    return () => { startPracticeRef.current = null }
+    return () => {
+      startPracticeRef.current = null
+    }
   }, [handleResultsPractice, startPracticeRef])
 
   const [botWordIndex, setBotWordIndex] = useState(0)
   useEffect(() => {
     if (!started || !paceBotEnabled) {
-      setBotWordIndex(0)
+      queueMicrotask(() => setBotWordIndex(0))
       return
     }
     const msPerWord = (60 / Math.max(paceBotWpm, 1)) * 1000
@@ -158,7 +184,8 @@ export function TypingTest(props: TypingTestProps) {
     return () => clearInterval(interval)
   }, [started, paceBotEnabled, paceBotWpm, words.length])
 
-  const isCodeRendering = (mode === "code" || (mode === "custom" && codeLines.length > 0))
+  const isCodeRendering =
+    mode === "code" || (mode === "custom" && codeLines.length > 0)
 
   // Track which code line the cursor is currently on so we can detect line changes
   const activeLineRef = useRef<number>(-1)
@@ -174,7 +201,10 @@ export function TypingTest(props: TypingTestProps) {
     let wCount = 0
     for (let li = 0; li < codeLines.length; li++) {
       wCount += codeLines[li]
-      if (wordIndex < wCount) { activeLine = li; break }
+      if (wordIndex < wCount) {
+        activeLine = li
+        break
+      }
     }
 
     // If the line changed, snap scrollLeft back to 0 immediately
@@ -189,22 +219,31 @@ export function TypingTest(props: TypingTestProps) {
       if (!cursor) return
       const containerRect = container.getBoundingClientRect()
       const cursorRect = cursor.getBoundingClientRect()
-      const cursorLeft = cursorRect.left - containerRect.left + container.scrollLeft
-      const cursorRight = cursorRect.right - containerRect.left + container.scrollLeft
+      const cursorLeft =
+        cursorRect.left - containerRect.left + container.scrollLeft
+      const cursorRight =
+        cursorRect.right - containerRect.left + container.scrollLeft
       const viewLeft = container.scrollLeft
       const viewRight = container.scrollLeft + containerRect.width
       const pad = 80
       if (cursorRight > viewRight - pad) {
-        container.scrollTo({ left: cursorRight - containerRect.width + pad, behavior: "smooth" })
+        container.scrollTo({
+          left: cursorRight - containerRect.width + pad,
+          behavior: "smooth",
+        })
       } else if (cursorLeft < viewLeft + pad) {
-        container.scrollTo({ left: Math.max(0, cursorLeft - pad), behavior: "smooth" })
+        container.scrollTo({
+          left: Math.max(0, cursorLeft - pad),
+          behavior: "smooth",
+        })
       }
     })
   }, [typed, wordIndex, isCodeRendering, wordsContainerRef, codeLines])
 
-  const rawCode = mode === "code" && codeLanguage && codeChapter
-    ? getCodeContent(codeLanguage, codeChapter)
-    : undefined
+  const rawCode =
+    mode === "code" && codeLanguage && codeChapter
+      ? getCodeContent(codeLanguage, codeChapter)
+      : undefined
 
   const shikiLang = mode === "custom" ? customCodeLanguage : codeLanguage
 
@@ -213,10 +252,10 @@ export function TypingTest(props: TypingTestProps) {
     shikiLang,
     isCodeRendering && syntaxHighlighting,
     resolvedTheme ?? "dark",
-    rawCode,
+    rawCode
   )
 
-  if (showResults && !props.hideResults) {
+  if (showResults) {
     return (
       <div
         className="w-full transition-all duration-150 ease-out"
@@ -273,16 +312,16 @@ export function TypingTest(props: TypingTestProps) {
           onCustomTextChange={onCustomTextChange}
           onCodeLanguageChange={onCodeLanguageChange}
           onCodeChapterChange={onCodeChapterChange}
-          onRestart={onRestart}
         />
       )}
 
       {/* Text area + controls — fills remaining height and centers when keyboard is hidden */}
-      <div className={cn(
-        "flex w-full flex-col items-center gap-3",
-        !showKeyboard && "flex-1 justify-center pb-20"
-      )}>
-
+      <div
+        className={cn(
+          "flex w-full flex-col items-center gap-3",
+          !showKeyboard && "flex-1 justify-center pb-20"
+        )}
+      >
         {/* Words display */}
         <div className="relative w-full">
           {/* Caps Lock indicator */}
@@ -348,8 +387,8 @@ export function TypingTest(props: TypingTestProps) {
           </motion.div>
 
           {codeLoading && (
-            <div className="flex items-center justify-center h-8">
-              <div className="w-24 h-1 bg-muted rounded-full overflow-hidden">
+            <div className="flex h-8 items-center justify-center">
+              <div className="h-1 w-24 overflow-hidden rounded-full bg-muted">
                 <motion.div
                   className="h-full bg-primary"
                   animate={{ width: ["0%", "100%"] }}
@@ -360,23 +399,28 @@ export function TypingTest(props: TypingTestProps) {
           )}
 
           {paceBotEnabled && words.length > 0 && (
-            <div className="w-full mb-3 p-2.5 rounded-xl border border-border bg-zinc-100/60 dark:bg-zinc-800/60 flex flex-col gap-1.5 transition-all">
-              <div className="flex items-center justify-between text-[11px] font-mono">
-                <span className="flex items-center gap-1.5 text-primary font-semibold">
+            <div className="mb-3 flex w-full flex-col gap-1.5 rounded-xl border border-border bg-zinc-100/60 p-2.5 transition-all dark:bg-zinc-800/60">
+              <div className="flex items-center justify-between font-mono text-[11px]">
+                <span className="flex items-center gap-1.5 font-semibold text-primary">
                   🏎️ You: {wordIndex} / {words.length} ({wpm} WPM)
                 </span>
-                <span className="flex items-center gap-1.5 text-amber-500 font-semibold">
-                  🤖 AI Pace Bot: {botWordIndex} / {words.length} ({paceBotWpm} WPM)
+                <span className="flex items-center gap-1.5 font-semibold text-amber-500">
+                  🤖 AI Pace Bot: {botWordIndex} / {words.length} ({paceBotWpm}{" "}
+                  WPM)
                 </span>
               </div>
-              <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="absolute top-0 left-0 h-full bg-primary transition-all duration-300"
-                  style={{ width: `${Math.min((wordIndex / words.length) * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min((wordIndex / words.length) * 100, 100)}%`,
+                  }}
                 />
                 <div
                   className="absolute top-0 left-0 h-full bg-amber-500/70 transition-all duration-300"
-                  style={{ width: `${Math.min((botWordIndex / words.length) * 100, 100)}%` }}
+                  style={{
+                    width: `${Math.min((botWordIndex / words.length) * 100, 100)}%`,
+                  }}
                 />
               </div>
             </div>
@@ -386,7 +430,9 @@ export function TypingTest(props: TypingTestProps) {
             ref={wordsContainerRef}
             className={cn(
               "relative w-full leading-relaxed",
-              isCodeRendering ? "overflow-x-auto overflow-y-hidden no-scrollbar" : "overflow-hidden",
+              isCodeRendering
+                ? "no-scrollbar overflow-x-auto overflow-y-hidden"
+                : "overflow-hidden",
               isActivelyTyping && "is-typing"
             )}
             style={{
@@ -404,7 +450,7 @@ export function TypingTest(props: TypingTestProps) {
               onBlur={handleInputBlur}
               onFocus={handleInputFocus}
               value={typed}
-              onChange={() => { }}
+              onChange={() => {}}
               autoFocus
               autoComplete="off"
               autoCorrect="off"
@@ -424,7 +470,9 @@ export function TypingTest(props: TypingTestProps) {
             <LayoutGroup id="words">
               <motion.div
                 className={cn(
-                  isCodeRendering ? "flex flex-col gap-y-1" : "flex flex-wrap gap-x-2.5 gap-y-1"
+                  isCodeRendering
+                    ? "flex flex-col gap-y-1"
+                    : "flex flex-wrap gap-x-2.5 gap-y-1"
                 )}
                 dir={isRTL ? "rtl" : undefined}
                 animate={{
@@ -435,37 +483,133 @@ export function TypingTest(props: TypingTestProps) {
                 transition={
                   resetting
                     ? { duration: 0.15, ease: "easeOut" }
-                    : { type: "spring", stiffness: 750, damping: 45, mass: 0.35 }
+                    : {
+                        type: "spring",
+                        stiffness: 750,
+                        damping: 45,
+                        mass: 0.35,
+                      }
                 }
               >
-                {isCodeRendering && codeLines.length > 0 ? (() => {
-                  // Compute which line the active word is on
-                  let activeLine = 0
-                  let wCount = 0
-                  for (let li = 0; li < codeLines.length; li++) {
-                    wCount += codeLines[li]
-                    if (wordIndex < wCount) { activeLine = li; break }
-                  }
+                {isCodeRendering && codeLines.length > 0
+                  ? (() => {
+                      // Compute which line the active word is on
+                      let activeLine = 0
+                      let wCount = 0
+                      for (let li = 0; li < codeLines.length; li++) {
+                        wCount += codeLines[li]
+                        if (wordIndex < wCount) {
+                          activeLine = li
+                          break
+                        }
+                      }
 
-                  const lineElements = []
-                  let wIdx = 0
-                  for (let lineIdx = 0; lineIdx < codeLines.length; lineIdx++) {
-                    const lineWordCount = codeLines[lineIdx]
-                    if (lineWordCount === 0) { continue }
-                    const isActiveLine = lineIdx === activeLine
-                    const lineWords = []
-                    for (let i = 0; i < lineWordCount; i++, wIdx++) {
-                      const word = words[wIdx]
-                      if (!word) continue
+                      const lineElements = []
+                      let wIdx = 0
+                      for (
+                        let lineIdx = 0;
+                        lineIdx < codeLines.length;
+                        lineIdx++
+                      ) {
+                        const lineWordCount = codeLines[lineIdx]
+                        if (lineWordCount === 0) {
+                          continue
+                        }
+                        const isActiveLine = lineIdx === activeLine
+                        const lineWords = []
+                        for (let i = 0; i < lineWordCount; i++, wIdx++) {
+                          const word = words[wIdx]
+                          if (!word) continue
+                          const isActive = wIdx === wordIndex
+                          const isPast = wIdx < wordIndex
+                          const isFuture = !isActive && !isPast
+                          const displayInput = isActive
+                            ? typed
+                            : isPast
+                              ? (wordInputs[wIdx] ?? "")
+                              : ""
+                          const hasError = isPast && wordInputs[wIdx] !== word
+                          const currentWordDone =
+                            typed.length >= (words[wordIndex]?.length ?? 0)
+                          const isNextWord = wIdx === wordIndex + 1
+                          const dimmed =
+                            ghostMode &&
+                            isFocused &&
+                            isFuture &&
+                            !(currentWordDone && isNextWord)
+                          lineWords.push(
+                            <WordItem
+                              key={`${word}-${wIdx}`}
+                              word={word}
+                              displayInput={displayInput}
+                              isActive={isActive}
+                              isPast={isPast}
+                              hasError={hasError}
+                              elemRef={isActive ? activeWordRef : undefined}
+                              dimmed={dimmed}
+                              isRTL={isRTL}
+                              tokenColors={
+                                syntaxHighlighting
+                                  ? shikiColors[wIdx]
+                                  : undefined
+                              }
+                            />
+                          )
+                        }
+                        const indent = codeIndents[lineIdx] ?? 0
+                        lineElements.push(
+                          <div
+                            key={lineIdx}
+                            className="flex flex-row items-baseline gap-x-4"
+                          >
+                            {/* Line number */}
+                            {showLineNumbers && (
+                              <span
+                                className={cn(
+                                  "w-8 shrink-0 text-right font-mono text-[0.7em] tabular-nums transition-colors duration-100 select-none",
+                                  isActiveLine
+                                    ? "text-primary"
+                                    : "text-muted-foreground/30"
+                                )}
+                              >
+                                {lineIdx + 1}
+                              </span>
+                            )}
+                            {/* Indentation spacer + line words */}
+                            <div
+                              className="flex flex-row gap-x-2.5"
+                              style={{
+                                paddingLeft:
+                                  indent > 0 ? `${indent * 2}ch` : undefined,
+                              }}
+                            >
+                              {lineWords}
+                            </div>
+                          </div>
+                        )
+                      }
+                      return lineElements
+                    })()
+                  : words.map((word, wIdx) => {
                       const isActive = wIdx === wordIndex
                       const isPast = wIdx < wordIndex
                       const isFuture = !isActive && !isPast
-                      const displayInput = isActive ? typed : isPast ? (wordInputs[wIdx] ?? "") : ""
+                      const displayInput = isActive
+                        ? typed
+                        : isPast
+                          ? (wordInputs[wIdx] ?? "")
+                          : ""
                       const hasError = isPast && wordInputs[wIdx] !== word
-                      const currentWordDone = typed.length >= (words[wordIndex]?.length ?? 0)
+                      const currentWordDone =
+                        typed.length >= (words[wordIndex]?.length ?? 0)
                       const isNextWord = wIdx === wordIndex + 1
-                      const dimmed = ghostMode && isFocused && isFuture && !(currentWordDone && isNextWord)
-                      lineWords.push(
+                      const dimmed =
+                        ghostMode &&
+                        isFocused &&
+                        isFuture &&
+                        !(currentWordDone && isNextWord)
+
+                      return (
                         <WordItem
                           key={`${word}-${wIdx}`}
                           word={word}
@@ -476,66 +620,14 @@ export function TypingTest(props: TypingTestProps) {
                           elemRef={isActive ? activeWordRef : undefined}
                           dimmed={dimmed}
                           isRTL={isRTL}
-                          tokenColors={syntaxHighlighting ? shikiColors[wIdx] : undefined}
+                          tokenColors={
+                            isCodeRendering && syntaxHighlighting
+                              ? shikiColors[wIdx]
+                              : undefined
+                          }
                         />
                       )
-                    }
-                    const indent = codeIndents[lineIdx] ?? 0
-                    lineElements.push(
-                      <div key={lineIdx} className="flex flex-row items-baseline gap-x-4">
-                        {/* Line number */}
-                        {showLineNumbers && (
-                          <span
-                            className={cn(
-                              "w-8 shrink-0 select-none text-right font-mono text-[0.7em] tabular-nums transition-colors duration-100",
-                              isActiveLine ? "text-primary" : "text-muted-foreground/30"
-                            )}
-                          >
-                            {lineIdx + 1}
-                          </span>
-                        )}
-                        {/* Indentation spacer + line words */}
-                        <div className="flex flex-row gap-x-2.5" style={{ paddingLeft: indent > 0 ? `${indent * 2}ch` : undefined }}>
-                          {lineWords}
-                        </div>
-                      </div>
-                    )
-                  }
-                  return lineElements
-                })() : words.map((word, wIdx) => {
-                  const isActive = wIdx === wordIndex
-                  const isPast = wIdx < wordIndex
-                  const isFuture = !isActive && !isPast
-                  const displayInput = isActive
-                    ? typed
-                    : isPast
-                      ? (wordInputs[wIdx] ?? "")
-                      : ""
-                  const hasError = isPast && wordInputs[wIdx] !== word
-                  const currentWordDone =
-                    typed.length >= (words[wordIndex]?.length ?? 0)
-                  const isNextWord = wIdx === wordIndex + 1
-                  const dimmed =
-                    ghostMode &&
-                    isFocused &&
-                    isFuture &&
-                    !(currentWordDone && isNextWord)
-
-                  return (
-                    <WordItem
-                      key={`${word}-${wIdx}`}
-                      word={word}
-                      displayInput={displayInput}
-                      isActive={isActive}
-                      isPast={isPast}
-                      hasError={hasError}
-                      elemRef={isActive ? activeWordRef : undefined}
-                      dimmed={dimmed}
-                      isRTL={isRTL}
-                      tokenColors={isCodeRendering && syntaxHighlighting ? shikiColors[wIdx] : undefined}
-                    />
-                  )
-                })}
+                    })}
               </motion.div>
             </LayoutGroup>
 
@@ -561,7 +653,10 @@ export function TypingTest(props: TypingTestProps) {
         </div>
 
         {/* Restart button */}
-        <RestartButton controlsVisible={controlsVisible} onRestart={onRestart} />
+        <RestartButton
+          controlsVisible={controlsVisible}
+          onRestart={onRestart}
+        />
 
         {/* Keyboard shortcuts hint */}
         <motion.div
@@ -595,8 +690,8 @@ export function TypingTest(props: TypingTestProps) {
             </span>
           )}
         </motion.div>
-
-      </div>{/* end centered content wrapper */}
+      </div>
+      {/* end centered content wrapper */}
     </div>
   )
 }

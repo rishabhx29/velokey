@@ -20,7 +20,13 @@ function IconX({ size = 16 }: { size?: number }) {
   )
 }
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { CornerBrackets } from "@/components/corner-brackets"
 
 interface ShareableStats {
@@ -135,7 +141,7 @@ export function ScreenshotButton({ stats, pb }: ScreenshotButtonProps) {
   const [theme, setTheme] = useState<ThemeColors>(DEFAULT_THEME)
 
   useEffect(() => {
-    if (open) setTheme(readTheme())
+    if (open) queueMicrotask(() => setTheme(readTheme()))
   }, [open])
 
   const renderOptions = {
@@ -391,7 +397,6 @@ export function ShareableResultCard({
         padding: "28px 32px",
       }}
     >
-
       <div
         className="flex items-center justify-between"
         style={{ marginBottom: 20 }}
@@ -473,7 +478,8 @@ export function ShareableResultCard({
               Test Type
             </div>
             <div style={{ color: theme.primary }}>
-              {stats.mode.charAt(0).toUpperCase() + stats.mode.slice(1)} {stats.modeDetail}
+              {stats.mode.charAt(0).toUpperCase() + stats.mode.slice(1)}{" "}
+              {stats.modeDetail}
             </div>
             <div style={{ opacity: 0.5 }}>English</div>
           </div>

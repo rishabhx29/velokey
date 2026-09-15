@@ -1,18 +1,17 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react"
+import dynamic from "next/dynamic"
+import { AnimatePresence, motion } from "motion/react"
 import {
   IconUpload,
   IconRotate,
   IconSparkles,
   IconFileText,
   IconCode,
-} from "@tabler/icons-react";
-import { CaretDownIcon } from "@phosphor-icons/react";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
+} from "@tabler/icons-react"
+import { CaretDownIcon } from "@phosphor-icons/react"
+import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -20,14 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { CornerBrackets } from "@/components/corner-brackets";
-import { DEFAULT_CUSTOM_TEXT } from "@/lib/test-storage";
-import type { CodeManifest } from "@/lib/code";
-import { getCodeContent } from "@/lib/code";
-import { cn } from "@/lib/utils";
+} from "@/components/ui/dialog"
+import { CornerBrackets } from "@/components/corner-brackets"
+import { DEFAULT_CUSTOM_TEXT } from "@/lib/test-storage"
+import type { CodeManifest } from "@/lib/code"
+import { getCodeContent } from "@/lib/code"
+import { cn } from "@/lib/utils"
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  ssr: false,
+})
 
 const VESPER_THEME = {
   base: "vs-dark" as const,
@@ -107,7 +108,7 @@ const VESPER_THEME = {
     "button.background": "#FFC799",
     "button.hoverBackground": "#FFCFA8",
     "button.foreground": "#000000",
-    "focusBorder": "#FFC799",
+    focusBorder: "#FFC799",
     "icon.foreground": "#A0A0A0",
     "input.background": "#1C1C1C",
     "list.activeSelectionBackground": "#232323",
@@ -138,7 +139,11 @@ const VESPER_THEME = {
     },
     {
       name: "Variables",
-      scope: ["variable", "string constant.other.placeholder", "entity.name.tag"],
+      scope: [
+        "variable",
+        "string constant.other.placeholder",
+        "entity.name.tag",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
@@ -255,7 +260,11 @@ const VESPER_THEME = {
     },
     {
       name: "Sub-methods",
-      scope: ["entity.name.module.js", "variable.import.parameter.js", "variable.other.class.js"],
+      scope: [
+        "entity.name.module.js",
+        "variable.import.parameter.js",
+        "variable.other.class.js",
+      ],
       settings: { foreground: "#FF8080" },
     },
     {
@@ -270,7 +279,10 @@ const VESPER_THEME = {
     },
     {
       name: "meta.method.js",
-      scope: ["meta.class-method.js entity.name.function.js", "variable.function.constructor"],
+      scope: [
+        "meta.class-method.js entity.name.function.js",
+        "variable.function.constructor",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
@@ -290,7 +302,10 @@ const VESPER_THEME = {
     },
     {
       name: "HTML Attributes",
-      scope: ["text.html.basic entity.other.attribute-name.html", "text.html.basic entity.other.attribute-name"],
+      scope: [
+        "text.html.basic entity.other.attribute-name.html",
+        "text.html.basic entity.other.attribute-name",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
@@ -340,62 +355,88 @@ const VESPER_THEME = {
     },
     {
       name: "Decorators",
-      scope: ["tag.decorator.js entity.name.tag.js", "tag.decorator.js punctuation.definition.tag.js"],
+      scope: [
+        "tag.decorator.js entity.name.tag.js",
+        "tag.decorator.js punctuation.definition.tag.js",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
       name: "ES7 Bind Operator",
-      scope: ["source.js constant.other.object.key.js string.unquoted.label.js"],
+      scope: [
+        "source.js constant.other.object.key.js string.unquoted.label.js",
+      ],
       settings: { fontStyle: "italic", foreground: "#FF8080" },
     },
     {
       name: "JSON Key - Level 0",
-      scope: ["source.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 1",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 2",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 3",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 4",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 5",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 6",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 7",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "JSON Key - Level 8",
-      scope: ["source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json"],
+      scope: [
+        "source.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json meta.structure.dictionary.value.json meta.structure.dictionary.json support.type.property-name.json",
+      ],
       settings: { foreground: "#FFC799" },
     },
     {
       name: "Markdown - Plain",
-      scope: ["text.html.markdown", "punctuation.definition.list_item.markdown"],
+      scope: [
+        "text.html.markdown",
+        "punctuation.definition.list_item.markdown",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
@@ -405,7 +446,9 @@ const VESPER_THEME = {
     },
     {
       name: "Markdown - Markup Raw Inline Punctuation",
-      scope: ["text.html.markdown markup.inline.raw.markdown punctuation.definition.raw.markdown"],
+      scope: [
+        "text.html.markdown markup.inline.raw.markdown punctuation.definition.raw.markdown",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
@@ -487,7 +530,11 @@ const VESPER_THEME = {
     },
     {
       name: "Markdown - Fenced Bode Block Variable",
-      scope: ["markup.raw.block.fenced.markdown", "variable.language.fenced.markdown", "punctuation.section.class.end"],
+      scope: [
+        "markup.raw.block.fenced.markdown",
+        "variable.language.fenced.markdown",
+        "punctuation.section.class.end",
+      ],
       settings: { foreground: "#FFFFFF" },
     },
     {
@@ -506,13 +553,13 @@ const VESPER_THEME = {
       settings: { foreground: "#FFFFFF" },
     },
   ],
-};
+}
 
 // Only list languages whose Monaco language ID differs from the internal code name.
-const MONACO_NAME_OVERRIDES: Record<string, string> = {};
+const MONACO_NAME_OVERRIDES: Record<string, string> = {}
 
 function toMonacoLang(lang: string): string {
-  return MONACO_NAME_OVERRIDES[lang] ?? lang;
+  return MONACO_NAME_OVERRIDES[lang] ?? lang
 }
 
 // Map file extensions → our language codes
@@ -534,17 +581,17 @@ const EXT_TO_LANG: Record<string, string> = {
   php: "php",
   sql: "sql",
   rb: "ruby",
-};
+}
 
-const MAX_CHARS = 20000;
-const DIALOG_CODE_MODE_KEY = "tc-dialog-code-mode";
-const DIALOG_CODE_LANG_KEY = "tc-dialog-code-lang";
+const MAX_CHARS = 20000
+const DIALOG_CODE_MODE_KEY = "tc-dialog-code-mode"
+const DIALOG_CODE_LANG_KEY = "tc-dialog-code-lang"
 
 interface CustomTextDialogProps {
-  value: string;
-  onSave: (next: string, codeLanguage?: string) => void;
-  trigger: React.ReactNode;
-  codeManifest: CodeManifest;
+  value: string
+  onSave: (next: string, codeLanguage?: string) => void
+  trigger: React.ReactNode
+  codeManifest: CodeManifest
 }
 
 export function CustomTextDialog({
@@ -553,171 +600,179 @@ export function CustomTextDialog({
   trigger,
   codeManifest,
 }: CustomTextDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [isCodeMode, setIsCodeMode] = useState(false);
-  const [selectedLang, setSelectedLang] = useState("");
-  const [langPickerOpen, setLangPickerOpen] = useState(false);
-  const [langSearch, setLangSearch] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { resolvedTheme } = useTheme();
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const [isCodeMode, setIsCodeMode] = useState(false)
+  const [selectedLang, setSelectedLang] = useState("")
+  const [langPickerOpen, setLangPickerOpen] = useState(false)
+  const [langSearch, setLangSearch] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
-      setDraft(value);
+      let savedCodeMode = false
+      let savedLang = ""
       try {
-        const savedCodeMode = localStorage.getItem(DIALOG_CODE_MODE_KEY) === "true";
-        const savedLang = localStorage.getItem(DIALOG_CODE_LANG_KEY) ?? "";
-        setIsCodeMode(savedCodeMode);
-        setSelectedLang(savedCodeMode ? savedLang : "");
+        savedCodeMode = localStorage.getItem(DIALOG_CODE_MODE_KEY) === "true"
+        savedLang = localStorage.getItem(DIALOG_CODE_LANG_KEY) ?? ""
       } catch {
-        setIsCodeMode(false);
-        setSelectedLang("");
+        savedCodeMode = false
+        savedLang = ""
       }
+      queueMicrotask(() => {
+        setDraft(value)
+        setIsCodeMode(savedCodeMode)
+        setSelectedLang(savedCodeMode ? savedLang : "")
+      })
     }
-  }, [open, value]);
+  }, [open, value])
 
-  const words = draft.trim().split(/\s+/).filter(Boolean);
-  const wordCount = words.length;
-  const charCount = draft.length;
-  const overLimit = charCount > MAX_CHARS;
+  const words = draft.trim().split(/\s+/).filter(Boolean)
+  const wordCount = words.length
+  const charCount = draft.length
+  const overLimit = charCount > MAX_CHARS
 
   async function handleFile(file: File | undefined | null) {
-    if (!file) return;
+    if (!file) return
     if (file.size > MAX_CHARS * 4) {
-      toast.error("file is too large");
-      return;
+      toast.error("file is too large")
+      return
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
 
     if (isCodeMode) {
-      const lang = EXT_TO_LANG[ext];
+      const lang = EXT_TO_LANG[ext]
       if (!lang) {
-        toast.error(`unsupported file type: .${ext}`);
-        return;
+        toast.error(`unsupported file type: .${ext}`)
+        return
       }
       try {
-        const text = await file.text();
-        setDraft(text);
-        setSelectedLang(lang);
-        localStorage.setItem(DIALOG_CODE_LANG_KEY, lang);
-        toast.success(`loaded ${file.name} as ${lang}`);
+        const text = await file.text()
+        setDraft(text)
+        setSelectedLang(lang)
+        localStorage.setItem(DIALOG_CODE_LANG_KEY, lang)
+        toast.success(`loaded ${file.name} as ${lang}`)
       } catch {
-        toast.error("could not read file");
+        toast.error("could not read file")
       }
     } else {
-      const detectedLang = EXT_TO_LANG[ext];
+      const detectedLang = EXT_TO_LANG[ext]
       if (detectedLang) {
         // Code file uploaded while in text mode — ask user to switch
         try {
-          const text = await file.text();
+          const text = await file.text()
           toast(`${file.name} looks like ${detectedLang} code`, {
-            description: "Switch to code mode to get syntax highlighting and line numbers.",
+            description:
+              "Switch to code mode to get syntax highlighting and line numbers.",
             duration: 8000,
             action: {
               label: "Enable code mode",
               onClick: () => {
-                setDraft(text);
-                setIsCodeMode(true);
-                setSelectedLang(detectedLang);
-                localStorage.setItem(DIALOG_CODE_MODE_KEY, "true");
-                localStorage.setItem(DIALOG_CODE_LANG_KEY, detectedLang);
+                setDraft(text)
+                setIsCodeMode(true)
+                setSelectedLang(detectedLang)
+                localStorage.setItem(DIALOG_CODE_MODE_KEY, "true")
+                localStorage.setItem(DIALOG_CODE_LANG_KEY, detectedLang)
               },
             },
-          });
+          })
           // Also load the text as-is so they can still use it in text mode
-          setDraft(text);
+          setDraft(text)
         } catch {
-          toast.error("could not read file");
+          toast.error("could not read file")
         }
-        return;
+        return
       }
       if (ext !== "txt" && file.type !== "text/plain") {
-        toast.error("only .txt files are supported");
-        return;
+        toast.error("only .txt files are supported")
+        return
       }
       try {
-        const text = await file.text();
-        setDraft(text);
-        toast.success(`loaded ${file.name}`);
+        const text = await file.text()
+        setDraft(text)
+        toast.success(`loaded ${file.name}`)
       } catch {
-        toast.error("could not read file");
+        toast.error("could not read file")
       }
     }
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    void handleFile(f);
+    e.preventDefault()
+    const f = e.dataTransfer.files?.[0]
+    void handleFile(f)
   }
 
   function handleSave() {
-    const cleaned = draft.trim();
+    const cleaned = draft.trim()
     if (!cleaned) {
-      toast.error("text cannot be empty");
-      return;
+      toast.error("text cannot be empty")
+      return
     }
     if (overLimit) {
-      toast.error(`text too long (${charCount}/${MAX_CHARS})`);
-      return;
+      toast.error(`text too long (${charCount}/${MAX_CHARS})`)
+      return
     }
     if (isCodeMode && !selectedLang) {
-      toast.error("select a language for code mode");
-      return;
+      toast.error("select a language for code mode")
+      return
     }
-    onSave(cleaned, isCodeMode ? selectedLang : undefined);
-    setOpen(false);
+    onSave(cleaned, isCodeMode ? selectedLang : undefined)
+    setOpen(false)
   }
 
   function resetToDefault() {
     if (isCodeMode && selectedLang && codeManifest[selectedLang]) {
-      const chapters = codeManifest[selectedLang].chapters;
-      const chapter = chapters[Math.floor(Math.random() * chapters.length)];
-      const content = getCodeContent(selectedLang, chapter);
-      if (content) { setDraft(content); return; }
+      const chapters = codeManifest[selectedLang].chapters
+      const chapter = chapters[Math.floor(Math.random() * chapters.length)]
+      const content = getCodeContent(selectedLang, chapter)
+      if (content) {
+        setDraft(content)
+        return
+      }
     }
-    setDraft(DEFAULT_CUSTOM_TEXT);
+    setDraft(DEFAULT_CUSTOM_TEXT)
   }
 
   function clearAll() {
-    setDraft("");
+    setDraft("")
   }
 
-  const dirty = draft !== value;
-  const selectedLangEntry = selectedLang ? codeManifest[selectedLang] : undefined;
-  const monacoLang = selectedLang ? toMonacoLang(selectedLang) : "plaintext";
-  const monacoTheme = resolvedTheme === "light" ? "light" : "vs-dark";
+  const dirty = draft !== value
+  const selectedLangEntry = selectedLang
+    ? codeManifest[selectedLang]
+    : undefined
+  const monacoLang = selectedLang ? toMonacoLang(selectedLang) : "plaintext"
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         className={cn(
-          "sm:max-w-[860px] w-[min(860px,calc(100vw-2rem))]",
+          "w-[min(860px,calc(100vw-2rem))] sm:max-w-[860px]",
           "max-h-[90dvh] md:h-[min(75dvh,560px)]",
-          "p-0 overflow-y-auto md:overflow-hidden",
+          "overflow-y-auto p-0 md:overflow-hidden",
           "duration-300 ease-out",
           "data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-bottom-2",
-          "data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-bottom-2",
+          "data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-bottom-2"
         )}
         onOpenAutoFocus={(e) => {
           // Let Monaco grab focus naturally; only prevent if not in code mode
-          if (!isCodeMode) e.preventDefault();
+          if (!isCodeMode) e.preventDefault()
         }}
         onCloseAutoFocus={(e) => {
-          e.preventDefault();
+          e.preventDefault()
           // Directly focus the typing input after dialog closes
           const typingInput = document.querySelector<HTMLInputElement>(
             'input[autocapitalize="none"][spellcheck="false"].absolute'
-          );
-          typingInput?.focus();
+          )
+          typingInput?.focus()
         }}
       >
-        <div className="flex flex-col md:grid md:grid-cols-[1.6fr_1fr] md:h-full md:overflow-hidden">
+        <div className="flex flex-col md:grid md:h-full md:grid-cols-[1.6fr_1fr] md:overflow-hidden">
           {/* Left column: editor */}
-          <div className="flex flex-col gap-3 border-b border-border p-5 md:border-r md:border-b-0 md:min-h-0 md:overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-border p-5 md:min-h-0 md:overflow-hidden md:border-r md:border-b-0">
             <DialogHeader className="gap-1">
               <DialogTitle className="font-(family-name:--font-doto) text-2xl font-bold tracking-wide">
                 {isCodeMode ? "Custom Code" : "Custom Text"}
@@ -733,7 +788,7 @@ export function CustomTextDialog({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="md:hidden group flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+              className="group flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground md:hidden"
             >
               <IconUpload size={16} stroke={1.5} className="shrink-0" />
               <span className="flex flex-col leading-tight">
@@ -741,14 +796,18 @@ export function CustomTextDialog({
                   {isCodeMode ? "Upload code file" : "Upload .txt"}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60">
-                  {isCodeMode ? Object.keys(EXT_TO_LANG).map(e => `.${e}`).join(" ") : "or drop one onto the editor"}
+                  {isCodeMode
+                    ? Object.keys(EXT_TO_LANG)
+                        .map((e) => `.${e}`)
+                        .join(" ")
+                    : "or drop one onto the editor"}
                 </span>
               </span>
             </button>
 
             {isCodeMode && selectedLang ? (
               /* Monaco editor — explicit height on mobile, flex-1 on desktop */
-              <div className="h-[220px] md:h-auto md:flex-1 md:min-h-0 overflow-hidden rounded-md border border-border">
+              <div className="h-[220px] overflow-hidden rounded-md border border-border md:h-auto md:min-h-0 md:flex-1">
                 <MonacoEditor
                   height="100%"
                   language={monacoLang}
@@ -756,12 +815,14 @@ export function CustomTextDialog({
                   value={draft}
                   onChange={(v) => setDraft(v ?? "")}
                   beforeMount={(monaco) => {
-                    monaco.editor.defineTheme("vesper", VESPER_THEME);
-                    if ((monaco as any).env) {
-                      (monaco as any).env.clipboard = {
+                    monaco.editor.defineTheme("vesper", VESPER_THEME)
+                    const env = (monaco as { env?: { clipboard?: unknown } })
+                      .env
+                    if (env) {
+                      env.clipboard = {
                         readText: async () => "",
-                        writeText: async (_text: string) => {},
-                      };
+                        writeText: async () => {},
+                      }
                     }
                   }}
                   options={{
@@ -773,7 +834,10 @@ export function CustomTextDialog({
                     tabSize: 2,
                     wordWrap: "on",
                     overviewRulerLanes: 0,
-                    scrollbar: { verticalScrollbarSize: 4, horizontalScrollbarSize: 4 },
+                    scrollbar: {
+                      verticalScrollbarSize: 4,
+                      horizontalScrollbarSize: 4,
+                    },
                     padding: { top: 10, bottom: 10 },
                     renderLineHighlight: "none",
                     folding: false,
@@ -786,7 +850,7 @@ export function CustomTextDialog({
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
-                className="relative h-[200px] md:h-auto md:flex-1 md:min-h-0"
+                className="relative h-[200px] md:h-auto md:min-h-0 md:flex-1"
               >
                 <textarea
                   value={draft}
@@ -794,15 +858,16 @@ export function CustomTextDialog({
                   spellCheck={false}
                   placeholder="Paste your text here…"
                   className={cn(
-                    "font-mono block h-full w-full resize-none rounded-md border border-border bg-background/40 p-3 text-sm leading-relaxed text-foreground",
-                    "placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
-                    overLimit && "border-destructive focus-visible:ring-destructive/40",
+                    "block h-full w-full resize-none rounded-md border border-border bg-background/40 p-3 font-mono text-sm leading-relaxed text-foreground",
+                    "placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none",
+                    overLimit &&
+                      "border-destructive focus-visible:ring-destructive/40"
                   )}
                 />
                 <span
                   className={cn(
-                    "pointer-events-none absolute right-3 bottom-2 font-mono text-[10px] uppercase tracking-widest",
-                    overLimit ? "text-destructive" : "text-muted-foreground/50",
+                    "pointer-events-none absolute right-3 bottom-2 font-mono text-[10px] tracking-widest uppercase",
+                    overLimit ? "text-destructive" : "text-muted-foreground/50"
                   )}
                 >
                   {charCount}/{MAX_CHARS}
@@ -810,13 +875,15 @@ export function CustomTextDialog({
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground/60">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] tracking-widest text-muted-foreground/60 uppercase">
               <span>
-                <span className="text-primary tabular-nums">{wordCount}</span> words
+                <span className="text-primary tabular-nums">{wordCount}</span>{" "}
+                words
               </span>
               <span className="opacity-40">·</span>
               <span>
-                <span className="text-primary tabular-nums">{charCount}</span> chars
+                <span className="text-primary tabular-nums">{charCount}</span>{" "}
+                chars
               </span>
               {dirty && (
                 <>
@@ -829,8 +896,8 @@ export function CustomTextDialog({
 
           {/* Right column: actions */}
           <div className="flex flex-col gap-4 p-5 md:overflow-y-auto">
-            <section className="hidden md:flex flex-col gap-2">
-              <h3 className="font-(family-name:--font-doto) text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <section className="hidden flex-col gap-2 md:flex">
+              <h3 className="font-(family-name:--font-doto) text-xs font-bold tracking-widest text-muted-foreground uppercase">
                 Source
               </h3>
               <button
@@ -845,7 +912,9 @@ export function CustomTextDialog({
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
                     {isCodeMode
-                      ? Object.keys(EXT_TO_LANG).map(e => `.${e}`).join(" ")
+                      ? Object.keys(EXT_TO_LANG)
+                          .map((e) => `.${e}`)
+                          .join(" ")
                       : "or drop one onto the editor"}
                   </span>
                 </span>
@@ -854,38 +923,45 @@ export function CustomTextDialog({
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept={isCodeMode
-                  ? Object.keys(EXT_TO_LANG).map((e) => `.${e}`).join(",")
-                  : ".txt,text/plain"}
+                accept={
+                  isCodeMode
+                    ? Object.keys(EXT_TO_LANG)
+                        .map((e) => `.${e}`)
+                        .join(",")
+                    : ".txt,text/plain"
+                }
                 onChange={(e) => {
-                  void handleFile(e.target.files?.[0]);
-                  e.target.value = "";
+                  void handleFile(e.target.files?.[0])
+                  e.target.value = ""
                 }}
               />
             </section>
 
-            <div className="hidden md:block h-px bg-border" />
+            <div className="hidden h-px bg-border md:block" />
 
             {/* Code mode toggle */}
             <section className="flex flex-col gap-3">
-              <h3 className="font-(family-name:--font-doto) text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <h3 className="font-(family-name:--font-doto) text-xs font-bold tracking-widest text-muted-foreground uppercase">
                 Code
               </h3>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
                   <IconCode size={12} />
                   Code mode
                 </span>
                 <button
                   type="button"
                   onClick={() => {
-                    const next = !isCodeMode;
-                    setIsCodeMode(next);
-                    localStorage.setItem(DIALOG_CODE_MODE_KEY, String(next));
-                    if (!next) { setSelectedLang(""); localStorage.removeItem(DIALOG_CODE_LANG_KEY); }
+                    const next = !isCodeMode
+                    setIsCodeMode(next)
+                    localStorage.setItem(DIALOG_CODE_MODE_KEY, String(next))
+                    if (!next) {
+                      setSelectedLang("")
+                      localStorage.removeItem(DIALOG_CODE_LANG_KEY)
+                    }
                   }}
                   className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer",
+                    "relative h-5 w-9 cursor-pointer rounded-full transition-colors duration-200",
                     isCodeMode ? "bg-primary" : "bg-muted"
                   )}
                 >
@@ -902,19 +978,29 @@ export function CustomTextDialog({
                 <button
                   type="button"
                   disabled={!isCodeMode}
-                  onClick={() => { if (isCodeMode) { setLangPickerOpen((v) => !v); setLangSearch(""); } }}
+                  onClick={() => {
+                    if (isCodeMode) {
+                      setLangPickerOpen((v) => !v)
+                      setLangSearch("")
+                    }
+                  }}
                   className={cn(
                     "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
                     isCodeMode
-                      ? "hover:bg-muted/50 cursor-pointer"
-                      : "opacity-40 cursor-not-allowed"
+                      ? "cursor-pointer hover:bg-muted/50"
+                      : "cursor-not-allowed opacity-40"
                   )}
                 >
                   <span className="min-w-0 truncate text-muted-foreground">
-                    {selectedLangEntry ? selectedLangEntry.name : "Select language…"}
+                    {selectedLangEntry
+                      ? selectedLangEntry.name
+                      : "Select language…"}
                   </span>
                   <CaretDownIcon
-                    className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", langPickerOpen && "rotate-180")}
+                    className={cn(
+                      "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                      langPickerOpen && "rotate-180"
+                    )}
                     weight="bold"
                   />
                 </button>
@@ -926,7 +1012,7 @@ export function CustomTextDialog({
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="absolute top-[calc(100%+4px)] left-0 w-full z-50 overflow-hidden shadow-xl rounded-lg border border-border bg-background"
+                      className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
                     >
                       <div className="border-b border-border px-2 py-1.5">
                         <input
@@ -934,37 +1020,48 @@ export function CustomTextDialog({
                           placeholder="Search language..."
                           value={langSearch}
                           onChange={(e) => setLangSearch(e.target.value)}
-                          className="w-full bg-transparent text-[16px] md:text-xs outline-none placeholder:text-muted-foreground"
+                          className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
                         />
                       </div>
-                      <div className="flex flex-col p-1 max-h-48 overflow-y-auto custom-scrollbar">
+                      <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
                         {(() => {
-                          const q = langSearch.trim().toLowerCase();
+                          const q = langSearch.trim().toLowerCase()
                           const filtered = q
-                            ? Object.values(codeManifest).filter((l) => l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q))
-                            : Object.values(codeManifest);
-                          return filtered.length > 0 ? filtered.map((lang) => (
-                            <button
-                              type="button"
-                              key={lang.code}
-                              onClick={() => {
-                                setSelectedLang(lang.code);
-                                localStorage.setItem(DIALOG_CODE_LANG_KEY, lang.code);
-                                setLangPickerOpen(false);
-                                setLangSearch("");
-                              }}
-                              className={cn(
-                                "flex w-full items-center rounded-md px-2 py-1.5 text-xs text-left transition-colors",
-                                selectedLang === lang.code
-                                  ? "bg-primary/10 text-primary"
-                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                              )}
-                            >
-                              {lang.name}
-                            </button>
-                          )) : (
-                            <p className="py-4 text-center text-xs text-muted-foreground">No languages found</p>
-                          );
+                            ? Object.values(codeManifest).filter(
+                                (l) =>
+                                  l.name.toLowerCase().includes(q) ||
+                                  l.code.toLowerCase().includes(q)
+                              )
+                            : Object.values(codeManifest)
+                          return filtered.length > 0 ? (
+                            filtered.map((lang) => (
+                              <button
+                                type="button"
+                                key={lang.code}
+                                onClick={() => {
+                                  setSelectedLang(lang.code)
+                                  localStorage.setItem(
+                                    DIALOG_CODE_LANG_KEY,
+                                    lang.code
+                                  )
+                                  setLangPickerOpen(false)
+                                  setLangSearch("")
+                                }}
+                                className={cn(
+                                  "flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                                  selectedLang === lang.code
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                              >
+                                {lang.name}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="py-4 text-center text-xs text-muted-foreground">
+                              No languages found
+                            </p>
+                          )
                         })()}
                       </div>
                     </motion.div>
@@ -976,7 +1073,7 @@ export function CustomTextDialog({
             <div className="h-px bg-border" />
 
             <section className="flex flex-col gap-2">
-              <h3 className="font-(family-name:--font-doto) text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <h3 className="font-(family-name:--font-doto) text-xs font-bold tracking-widest text-muted-foreground uppercase">
                 Tools
               </h3>
               <button
@@ -985,7 +1082,9 @@ export function CustomTextDialog({
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <IconSparkles size={14} stroke={1.5} />
-                {isCodeMode && selectedLang ? "Load random sample" : "Load sample pangram"}
+                {isCodeMode && selectedLang
+                  ? "Load random sample"
+                  : "Load sample pangram"}
               </button>
               <button
                 type="button"
@@ -999,16 +1098,22 @@ export function CustomTextDialog({
 
             <div className="h-px bg-border" />
 
-            <section className="hidden md:flex flex-col gap-2 text-[10px] leading-relaxed text-muted-foreground/60">
-              <h3 className="font-(family-name:--font-doto) text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <section className="hidden flex-col gap-2 text-[10px] leading-relaxed text-muted-foreground/60 md:flex">
+              <h3 className="font-(family-name:--font-doto) text-xs font-bold tracking-widest text-muted-foreground uppercase">
                 Tips
               </h3>
               <p className="flex items-start gap-1.5">
-                <IconFileText size={11} className="mt-[1px] shrink-0 opacity-60" />
+                <IconFileText
+                  size={11}
+                  className="mt-[1px] shrink-0 opacity-60"
+                />
                 Punctuation and casing are preserved.
               </p>
               <p className="flex items-start gap-1.5">
-                <IconFileText size={11} className="mt-[1px] shrink-0 opacity-60" />
+                <IconFileText
+                  size={11}
+                  className="mt-[1px] shrink-0 opacity-60"
+                />
                 {isCodeMode
                   ? "Line breaks create new code lines with indentation."
                   : "Line breaks are collapsed into spaces."}
@@ -1020,7 +1125,7 @@ export function CustomTextDialog({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+                  className="flex w-full items-center justify-center gap-2 border border-border bg-background px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
                 >
                   Cancel
                 </button>
@@ -1029,8 +1134,12 @@ export function CustomTextDialog({
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={overLimit || draft.trim().length === 0 || (isCodeMode && !selectedLang)}
-                  className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm bg-primary transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={
+                    overLimit ||
+                    draft.trim().length === 0 ||
+                    (isCodeMode && !selectedLang)
+                  }
+                  className="flex w-full items-center justify-center gap-2 bg-primary px-4 py-2 text-sm transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Save & Start
                 </button>
@@ -1040,5 +1149,5 @@ export function CustomTextDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

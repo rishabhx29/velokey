@@ -1,72 +1,79 @@
-"use client";
+"use client"
 
-import { useMemo, useEffect, useRef, useState, type ReactNode } from "react";
-import { Confetti, type ConfettiRef } from "@/components/ui/confetti";
-import { isInvalidTestResult } from "@/lib/validate-result";
-import { saveIfPersonalBest } from "@/lib/personal-best";
-import { recordTestMistakes, getProblemWords, getMistakeStats, buildHistoryPracticeWords, clearMistakes } from "@/lib/mistakes";
-import { saveTestToHistory } from "@/lib/test-history";
-import { motion, AnimatePresence } from "motion/react";
-import { IconInfoCircle, IconRefresh, IconArrowRight, IconDownload, IconAlignLeft, IconTargetArrow } from "@tabler/icons-react";
+import { useMemo, useEffect, useRef, useState, type ReactNode } from "react"
+import { Confetti, type ConfettiRef } from "@/components/ui/confetti"
+import { isInvalidTestResult } from "@/lib/validate-result"
+import { saveIfPersonalBest } from "@/lib/personal-best"
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
+  recordTestMistakes,
+  getProblemWords,
+  getMistakeStats,
+  buildHistoryPracticeWords,
+  clearMistakes,
+} from "@/lib/mistakes"
+import { saveTestToHistory } from "@/lib/test-history"
+import { motion, AnimatePresence } from "motion/react"
+import {
+  IconInfoCircle,
+  IconRefresh,
+  IconArrowRight,
+  IconDownload,
+  IconAlignLeft,
+  IconTargetArrow,
+} from "@tabler/icons-react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
 import {
   ChartContainer,
   ChartTooltip,
   type ChartConfig,
-} from "@/components/ui/chart";
+} from "@/components/ui/chart"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/popover"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { CornerBrackets } from "@/components/corner-brackets";
-import { ScreenshotButton } from "@/components/shareable-result-card";
+} from "@/components/ui/dialog"
+import { CornerBrackets } from "@/components/corner-brackets"
+import { ScreenshotButton } from "@/components/shareable-result-card"
 
 export interface WpmSnapshot {
-  second: number;
-  wpm: number;
-  raw: number;
-  errors: number;
+  second: number
+  wpm: number
+  raw: number
+  errors: number
 }
 
 export interface ResultStats {
-  wpm: number;
-  accuracy: number;
-  raw: number;
-  correctChars: number;
-  incorrectChars: number;
-  extraChars: number;
-  missedChars: number;
-  consistency: number;
-  elapsedSeconds: number;
-  correctedErrors: number;
-  mode: string;
-  modeDetail: string;
-  language: string;
-  wpmHistory: WpmSnapshot[];
-  wordInputs?: string[];
-  targetWords?: string[];
-  wordTimingsMs?: number[];
+  wpm: number
+  accuracy: number
+  raw: number
+  correctChars: number
+  incorrectChars: number
+  extraChars: number
+  missedChars: number
+  consistency: number
+  elapsedSeconds: number
+  correctedErrors: number
+  mode: string
+  modeDetail: string
+  language: string
+  wpmHistory: WpmSnapshot[]
+  wordInputs?: string[]
+  targetWords?: string[]
+  wordTimingsMs?: number[]
 }
 
 interface ResultsScreenProps {
-  stats: ResultStats;
-  onRestart: () => void;
-  onNext: () => void;
-  onPractice?: (words: string[]) => void;
+  stats: ResultStats
+  onRestart: () => void
+  onNext: () => void
+  onPractice?: (words: string[]) => void
 }
 
 function ResultsBracketButton({
@@ -75,19 +82,19 @@ function ResultsBracketButton({
   icon,
   spinOnClick = false,
 }: {
-  onClick: () => void;
-  label: string;
-  icon: ReactNode;
-  spinOnClick?: boolean;
+  onClick: () => void
+  label: string
+  icon: ReactNode
+  spinOnClick?: boolean
 }) {
-  const [spinning, setSpinning] = useState(false);
+  const [spinning, setSpinning] = useState(false)
 
   function handleClick() {
     if (spinOnClick) {
-      setSpinning(true);
-      setTimeout(() => setSpinning(false), 600);
+      setSpinning(true)
+      setTimeout(() => setSpinning(false), 600)
     }
-    onClick();
+    onClick()
   }
 
   return (
@@ -95,7 +102,7 @@ function ResultsBracketButton({
       <button
         type="button"
         onClick={handleClick}
-        className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+        className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
       >
         <span
           style={{
@@ -109,7 +116,7 @@ function ResultsBracketButton({
         {label}
       </button>
     </CornerBrackets>
-  );
+  )
 }
 
 const chartConfig: ChartConfig = {
@@ -121,19 +128,19 @@ const chartConfig: ChartConfig = {
     label: "Raw",
     color: "hsl(var(--muted-foreground))",
   },
-};
+}
 
 function WpmChart({
   history,
   personalBest,
 }: {
-  history: WpmSnapshot[];
-  personalBest?: number;
+  history: WpmSnapshot[]
+  personalBest?: number
 }) {
   const burst = useMemo(
     () => Math.max(...history.map((d) => d.wpm), 0),
-    [history],
-  );
+    [history]
+  )
 
   const data = useMemo(
     () =>
@@ -143,26 +150,29 @@ function WpmChart({
         raw: d.raw,
         errors: d.errors,
       })),
-    [history],
-  );
+    [history]
+  )
 
-  const maxVal = Math.max(...history.map((d) => d.raw), personalBest ?? 0, 10);
+  const maxVal = Math.max(...history.map((d) => d.raw), personalBest ?? 0, 10)
 
   const { secondTicks, minSecond, maxSecond } = useMemo(() => {
-    const seconds = history.map((d) => Math.round(d.second));
-    const lo = seconds.length ? Math.max(1, Math.min(...seconds)) : 1;
-    const hi = seconds.length ? Math.max(lo, Math.max(...seconds)) : 1;
-    const span = hi - lo;
-    const step = Math.max(1, Math.ceil((span || 1) / 8));
-    const ticks: number[] = [];
-    for (let t = lo; t <= hi; t += step) ticks.push(t);
-    if (ticks[ticks.length - 1] !== hi) ticks.push(hi);
-    return { secondTicks: ticks, minSecond: lo, maxSecond: hi };
-  }, [history]);
+    const seconds = history.map((d) => Math.round(d.second))
+    const lo = seconds.length ? Math.max(1, Math.min(...seconds)) : 1
+    const hi = seconds.length ? Math.max(lo, Math.max(...seconds)) : 1
+    const span = hi - lo
+    const step = Math.max(1, Math.ceil((span || 1) / 8))
+    const ticks: number[] = []
+    for (let t = lo; t <= hi; t += step) ticks.push(t)
+    if (ticks[ticks.length - 1] !== hi) ticks.push(hi)
+    return { secondTicks: ticks, minSecond: lo, maxSecond: hi }
+  }, [history])
 
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-      <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 20 }}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 16, left: 0, bottom: 20 }}
+      >
         <CartesianGrid
           vertical={false}
           stroke="currentColor"
@@ -194,7 +204,11 @@ function WpmChart({
           }}
         />
         <ChartTooltip
-          cursor={{ stroke: "currentColor", strokeOpacity: 0.15, strokeWidth: 1 }}
+          cursor={{
+            stroke: "currentColor",
+            strokeOpacity: 0.15,
+            strokeWidth: 1,
+          }}
           content={({ active, payload, label }) => (
             <ChartHoverCard
               active={active}
@@ -229,11 +243,15 @@ function WpmChart({
         />
       </LineChart>
     </ChartContainer>
-  );
+  )
 }
 
-
-export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsScreenProps) {
+export function ResultsScreen({
+  stats,
+  onRestart,
+  onNext,
+  onPractice,
+}: ResultsScreenProps) {
   const {
     wpm,
     accuracy,
@@ -253,28 +271,35 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
   const confettiRef = useRef<ConfettiRef>(null)
   const invalid = isInvalidTestResult(stats)
 
-  const [pb] = useState(() => invalid ? null : saveIfPersonalBest(mode, modeDetail, wpm, accuracy));
+  const [pb] = useState(() =>
+    invalid ? null : saveIfPersonalBest(mode, modeDetail, wpm, accuracy)
+  )
 
   // Record this test's missed/slow words into the persistent dictionary — once per mount.
-  const recordedRef = useRef(false);
+  const recordedRef = useRef(false)
   useEffect(() => {
-    if (invalid || recordedRef.current) return;
-    recordedRef.current = true;
-    recordTestMistakes(stats.targetWords ?? [], stats.wordInputs ?? [], stats.wordTimingsMs ?? [], stats.mode);
+    if (invalid || recordedRef.current) return
+    recordedRef.current = true
+    recordTestMistakes(
+      stats.targetWords ?? [],
+      stats.wordInputs ?? [],
+      stats.wordTimingsMs ?? [],
+      stats.mode
+    )
 
     // Also record to test history for the Stats Dashboard
-    const charErrors: Record<string, number> = {};
-    const charAttempts: Record<string, number> = {};
-    const targets = stats.targetWords ?? [];
-    const inputs = stats.wordInputs ?? [];
+    const charErrors: Record<string, number> = {}
+    const charAttempts: Record<string, number> = {}
+    const targets = stats.targetWords ?? []
+    const inputs = stats.wordInputs ?? []
     for (let wi = 0; wi < Math.min(targets.length, inputs.length); wi++) {
-      const target = targets[wi];
-      const input = inputs[wi] ?? "";
+      const target = targets[wi]
+      const input = inputs[wi] ?? ""
       for (let ci = 0; ci < target.length; ci++) {
-        const ch = target[ci].toLowerCase();
-        charAttempts[ch] = (charAttempts[ch] ?? 0) + 1;
+        const ch = target[ci].toLowerCase()
+        charAttempts[ch] = (charAttempts[ch] ?? 0) + 1
         if (ci < input.length && input[ci] !== target[ci]) {
-          charErrors[ch] = (charErrors[ch] ?? 0) + 1;
+          charErrors[ch] = (charErrors[ch] ?? 0) + 1
         }
       }
     }
@@ -293,30 +318,53 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
       language: stats.language,
       charErrors,
       charAttempts,
-    });
-  }, [invalid, stats.targetWords, stats.wordInputs, stats.wordTimingsMs, stats.mode,
-      mode, wpm, raw, accuracy, correctChars, incorrectChars, extraChars, missedChars,
-      elapsedSeconds, modeDetail, stats.language]);
-  const chartPersonalBest = wpm;
+    })
+  }, [
+    invalid,
+    stats.targetWords,
+    stats.wordInputs,
+    stats.wordTimingsMs,
+    stats.mode,
+    mode,
+    wpm,
+    raw,
+    accuracy,
+    correctChars,
+    incorrectChars,
+    extraChars,
+    missedChars,
+    elapsedSeconds,
+    modeDetail,
+    stats.language,
+  ])
+  const chartPersonalBest = wpm
 
   const languageName = useMemo(() => {
-    if (mode === "custom") return null;
-    return stats.language ? stats.language.charAt(0).toUpperCase() + stats.language.slice(1) : null;
-  }, [mode, stats.language]);
+    if (mode === "custom") return null
+    return stats.language
+      ? stats.language.charAt(0).toUpperCase() + stats.language.slice(1)
+      : null
+  }, [mode, stats.language])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        onRestart();
-      } else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        e.preventDefault();
-        onNext();
+        e.preventDefault()
+        onRestart()
+      } else if (
+        e.key === "Enter" &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault()
+        onNext()
       }
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNext, onRestart]);
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onNext, onRestart])
 
   useEffect(() => {
     if (!invalid && pb?.isNewPb) {
@@ -339,16 +387,16 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="flex w-full flex-col gap-8 md:max-w-site md:mx-auto"
+        className="flex w-full flex-col gap-8 md:mx-auto md:max-w-site"
       >
         <div className="flex flex-col items-center gap-3 px-2 text-center">
           <p className="font-(family-name:--font-doto) text-3xl font-bold text-muted-foreground md:text-4xl">
             invalid result
           </p>
           <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-            No keystrokes were recorded, so scores can&apos;t be calculated. This
-            often happens if the timer ran out before you typed, you left focus,
-            or the test ended right after it started.
+            No keystrokes were recorded, so scores can&apos;t be calculated.
+            This often happens if the timer ran out before you typed, you left
+            focus, or the test ended right after it started.
           </p>
           <p className="text-xs text-muted-foreground/70">
             {mode} {modeDetail}
@@ -378,7 +426,7 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex w-full flex-col gap-6 md:max-w-site md:mx-auto mt-12 md:mt-0"
+      className="mt-12 flex w-full flex-col gap-6 md:mx-auto md:mt-0 md:max-w-site"
     >
       {pb?.isNewPb && (
         <Confetti
@@ -398,11 +446,9 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
             labelAdornment={<CalculationFormulaPopover />}
           />
           <StatBig label="Accuracy" value={`${accuracy}%`} />
+          {pb?.isNewPb && <StatBig label="Personal Best" value={`${wpm}`} />}
           {pb?.isNewPb && (
-            <StatBig label="Personal Best" value={`${wpm}`} />
-          )}
-          {pb?.isNewPb && (
-            <span className="text-xs font-medium text-primary animate-in fade-in">
+            <span className="animate-in text-xs font-medium text-primary fade-in">
               New Personal Best
             </span>
           )}
@@ -410,20 +456,20 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
             <StatBig label="Personal Best" value={pb.previous.wpm} />
           )}
           <div className="mt-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
-            <span className="text-[10px] uppercase tracking-widest opacity-50">
+            <span className="text-[10px] tracking-widest uppercase opacity-50">
               Test Type
             </span>
             <span className="text-primary">
-              {modeDetail && modeDetail !== mode ? `${capitalize(mode)} ${modeDetail}` : capitalize(mode)}
+              {modeDetail && modeDetail !== mode
+                ? `${capitalize(mode)} ${modeDetail}`
+                : capitalize(mode)}
             </span>
-            {languageName && (
-              <span className="opacity-50">{languageName}</span>
-            )}
+            {languageName && <span className="opacity-50">{languageName}</span>}
           </div>
         </div>
 
         {/* Chart */}
-        <div className=" h-80 w-full md:flex-1">
+        <div className="h-80 w-full md:flex-1">
           {wpmHistory.length > 1 ? (
             <WpmChart history={wpmHistory} personalBest={chartPersonalBest} />
           ) : (
@@ -443,7 +489,11 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
         />
         <StatBox label="Consistency" value={`${consistency}%`} />
         <StatBox label="Time" value={`${elapsedSeconds}s`} />
-        <StatBox label="Fixes" value={correctedErrors} hint="Backspaces on wrong chars" />
+        <StatBox
+          label="Fixes"
+          value={correctedErrors}
+          hint="Backspaces on wrong chars"
+        />
       </div>
 
       {/* Actions */}
@@ -461,53 +511,55 @@ export function ResultsScreen({ stats, onRestart, onNext, onPractice }: ResultsS
         />
         <ScreenshotButton stats={stats} pb={pb} />
         <WordReviewModal stats={stats} />
-        {onPractice && <PracticeWordsModal stats={stats} onPractice={onPractice} />}
-        <DownloadResultsPopover stats={stats} pb={pb} />
+        {onPractice && (
+          <PracticeWordsModal stats={stats} onPractice={onPractice} />
+        )}
+        <DownloadResultsPopover stats={stats} />
       </div>
     </motion.div>
-  );
+  )
 }
 
 // ─── Practice Words ──────────────────────────────────────────────────────────
 
-type MissedMode = "off" | "words" | "biwords";
+type MissedMode = "off" | "words" | "biwords"
 
 function buildPracticeWords(
   targetWords: string[],
   wordInputs: string[],
   wordTimingsMs: number[],
   missedMode: MissedMode,
-  includeSlow: boolean,
+  includeSlow: boolean
 ): string[] {
-  const result = new Set<string>();
+  const result = new Set<string>()
 
   // Missed words
   if (missedMode !== "off") {
     targetWords.forEach((target, i) => {
-      const typed = wordInputs[i];
-      if (typed === undefined) return; // not reached
+      const typed = wordInputs[i]
+      if (typed === undefined) return // not reached
       if (typed !== target) {
         if (missedMode === "biwords" && i > 0) {
-          result.add(`${targetWords[i - 1]} ${target}`);
+          result.add(`${targetWords[i - 1]} ${target}`)
         } else {
-          result.add(target);
+          result.add(target)
         }
       }
-    });
+    })
   }
 
   // Slow words — above 75th‑percentile timing
   if (includeSlow && wordTimingsMs.length > 1) {
-    const sorted = [...wordTimingsMs].sort((a, b) => a - b);
-    const p75 = sorted[Math.floor(sorted.length * 0.75)];
+    const sorted = [...wordTimingsMs].sort((a, b) => a - b)
+    const p75 = sorted[Math.floor(sorted.length * 0.75)]
     wordTimingsMs.forEach((ms, i) => {
       if (ms > p75 && targetWords[i]) {
-        result.add(targetWords[i]);
+        result.add(targetWords[i])
       }
-    });
+    })
   }
 
-  return Array.from(result);
+  return Array.from(result)
 }
 
 function SegmentedControl<T extends string>({
@@ -515,18 +567,18 @@ function SegmentedControl<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
 }) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div className="flex flex-wrap gap-1.5">
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`rounded-md px-3 py-1.5 text-xs font-mono transition-colors focus-visible:outline-none ${
+          className={`rounded-md px-3 py-1.5 font-mono text-xs transition-colors focus-visible:outline-none ${
             value === opt.value
               ? "bg-primary text-primary-foreground"
               : "border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -536,66 +588,77 @@ function SegmentedControl<T extends string>({
         </button>
       ))}
     </div>
-  );
+  )
 }
 
 function PracticeWordsModal({
   stats,
   onPractice,
 }: {
-  stats: ResultStats;
-  onPractice: (words: string[]) => void;
+  stats: ResultStats
+  onPractice: (words: string[]) => void
 }) {
-  const { wordInputs = [], targetWords = [], wordTimingsMs = [] } = stats;
-  const [missedMode, setMissedMode] = useState<MissedMode>("words");
-  const [includeSlow, setIncludeSlow] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [dictVersion, setDictVersion] = useState(0);
+  const { wordInputs = [], targetWords = [], wordTimingsMs = [] } = stats
+  const [missedMode, setMissedMode] = useState<MissedMode>("words")
+  const [includeSlow, setIncludeSlow] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [dictVersion, setDictVersion] = useState(0)
 
   const hasMissed = targetWords.some((w, i) => {
-    const t = wordInputs[i];
-    return t !== undefined && t !== w;
-  });
-  const hasSlow = wordTimingsMs.length > 3;
+    const t = wordInputs[i]
+    return t !== undefined && t !== w
+  })
+  const hasSlow = wordTimingsMs.length > 3
 
   // Read the all-time dictionary fresh whenever the modal opens or is reset.
   const allTime = useMemo(() => {
-    if (!open) return { words: [] as string[], count: 0, mastery: 100 };
-    const words = getProblemWords().map((e) => e.word);
-    const { count, mastery } = getMistakeStats();
-    return { words, count, mastery };
-  }, [open, dictVersion]);
+    if (!open) return { words: [] as string[], count: 0, mastery: 100 }
+    const words = getProblemWords().map((e) => e.word)
+    const { count, mastery } = getMistakeStats()
+    return { words, count, mastery }
+    // dictVersion is an intentional refresh trigger after resetting the store.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, dictVersion])
 
-  const hasHistory = allTime.count > 0;
-  const [source, setSource] = useState<"test" | "all-time">("all-time");
+  const hasHistory = allTime.count > 0
+  const [source, setSource] = useState<"test" | "all-time">("all-time")
 
   const testWords = useMemo(
-    () => buildPracticeWords(targetWords, wordInputs, wordTimingsMs, missedMode, includeSlow),
-    [targetWords, wordInputs, wordTimingsMs, missedMode, includeSlow],
-  );
+    () =>
+      buildPracticeWords(
+        targetWords,
+        wordInputs,
+        wordTimingsMs,
+        missedMode,
+        includeSlow
+      ),
+    [targetWords, wordInputs, wordTimingsMs, missedMode, includeSlow]
+  )
 
-  const previewWords = source === "test" ? testWords : allTime.words;
-  const canStart = previewWords.length > 0;
+  const previewWords = source === "test" ? testWords : allTime.words
+  const canStart = previewWords.length > 0
 
   function handleStart() {
-    if (!canStart) return;
-    let words: string[];
+    if (!canStart) return
+    let words: string[]
     if (source === "all-time") {
-      words = buildHistoryPracticeWords();
+      words = buildHistoryPracticeWords()
     } else {
       // Repeat the set a few times so there's enough text for a real session
-      words = Array.from({ length: Math.max(1, Math.ceil(20 / testWords.length)) })
+      words = Array.from({
+        length: Math.max(1, Math.ceil(20 / testWords.length)),
+      })
         .flatMap(() => [...testWords])
-        .slice(0, Math.max(testWords.length * 3, 20));
+        .slice(0, Math.max(testWords.length * 3, 20))
     }
-    if (words.length === 0) return;
-    setOpen(false);
-    onPractice(words);
+    if (words.length === 0) return
+    setOpen(false)
+    onPractice(words)
   }
 
   function handleReset() {
-    clearMistakes();
-    setDictVersion((v) => v + 1);
+    clearMistakes()
+    setDictVersion((v) => v + 1)
   }
 
   return (
@@ -604,7 +667,7 @@ function PracticeWordsModal({
         <CornerBrackets className="inline-flex">
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
           >
             <IconTargetArrow size={16} stroke={1.5} aria-hidden />
             Practice Words
@@ -617,10 +680,11 @@ function PracticeWordsModal({
         </DialogHeader>
 
         <div className="flex flex-col gap-5 py-1">
-
           {/* Source toggle */}
           <div className="flex flex-col gap-2.5">
-            <span className="text-[10px] uppercase tracking-widest text-primary">source</span>
+            <span className="text-[10px] tracking-widest text-primary uppercase">
+              source
+            </span>
             <SegmentedControl<"test" | "all-time">
               options={[
                 { value: "test", label: "this test" },
@@ -636,10 +700,13 @@ function PracticeWordsModal({
               {/* Missed section */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-widest text-primary">✕ missed</span>
+                  <span className="text-[10px] tracking-widest text-primary uppercase">
+                    ✕ missed
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Include missed words or biwords (which include the previous word).
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Include missed words or biwords (which include the previous
+                  word).
                 </p>
                 <SegmentedControl<MissedMode>
                   options={[
@@ -660,9 +727,11 @@ function PracticeWordsModal({
               {/* Slow section */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-widest text-primary">◎ slow</span>
+                  <span className="text-[10px] tracking-widest text-primary uppercase">
+                    ◎ slow
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   Include words you typed slower than others (top 25% slowest).
                 </p>
                 <SegmentedControl<"off" | "on">
@@ -682,24 +751,32 @@ function PracticeWordsModal({
             </>
           ) : (
             <div className="flex flex-col gap-2.5">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Your most-missed and slowest words across every test. Words drop off
-                once you type them cleanly a few times in a row.
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Your most-missed and slowest words across every test. Words drop
+                off once you type them cleanly a few times in a row.
               </p>
               <div className="flex items-center gap-4 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
                 <div className="flex flex-col">
-                  <span className="text-lg font-semibold text-foreground tabular-nums">{allTime.mastery}%</span>
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50">mastery</span>
+                  <span className="text-lg font-semibold text-foreground tabular-nums">
+                    {allTime.mastery}%
+                  </span>
+                  <span className="text-[10px] tracking-widest text-muted-foreground/50 uppercase">
+                    mastery
+                  </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-lg font-semibold text-foreground tabular-nums">{allTime.count}</span>
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50">tracked words</span>
+                  <span className="text-lg font-semibold text-foreground tabular-nums">
+                    {allTime.count}
+                  </span>
+                  <span className="text-[10px] tracking-widest text-muted-foreground/50 uppercase">
+                    tracked words
+                  </span>
                 </div>
                 {hasHistory && (
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="ml-auto text-[10px] uppercase tracking-widest text-muted-foreground/60 transition-colors hover:text-destructive focus-visible:outline-none"
+                    className="ml-auto text-[10px] tracking-widest text-muted-foreground/60 uppercase transition-colors hover:text-destructive focus-visible:outline-none"
                   >
                     reset
                   </button>
@@ -716,10 +793,11 @@ function PracticeWordsModal({
           {/* Preview */}
           {canStart && (
             <div className="rounded-md border border-border/50 bg-muted/30 px-3 py-2">
-              <p className="mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                {previewWords.length} word{previewWords.length !== 1 ? "s" : ""} selected
+              <p className="mb-1.5 text-[10px] tracking-widest text-muted-foreground/50 uppercase">
+                {previewWords.length} word{previewWords.length !== 1 ? "s" : ""}{" "}
+                selected
               </p>
-              <p className="font-mono text-xs text-muted-foreground line-clamp-2">
+              <p className="line-clamp-2 font-mono text-xs text-muted-foreground">
                 {previewWords.join(" · ")}
               </p>
             </div>
@@ -730,20 +808,20 @@ function PracticeWordsModal({
             type="button"
             onClick={handleStart}
             disabled={!canStart}
-            className="w-full rounded-md border border-border px-4 py-2.5 font-mono text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-none"
+            className="w-full rounded-md border border-border px-4 py-2.5 font-mono text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-30"
           >
             start
           </button>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 // ─── Word Review ──────────────────────────────────────────────────────────────
 
 function WordChip({ target, typed }: { target: string; typed: string }) {
-  const isFullMatch = typed === target;
+  const isFullMatch = typed === target
   return (
     <div
       className={`rounded-md border px-2 py-1 font-mono text-xs ${
@@ -754,47 +832,73 @@ function WordChip({ target, typed }: { target: string; typed: string }) {
     >
       <div className="flex">
         {target.split("").map((ch, ci) => {
-          const typedCh = typed[ci];
+          const typedCh = typed[ci]
           if (typedCh === undefined) {
             return (
-              <span key={ci} className="text-muted-foreground/30 underline decoration-dotted">
+              <span
+                key={ci}
+                className="text-muted-foreground/30 underline decoration-dotted"
+              >
                 {ch}
               </span>
-            );
+            )
           }
           if (typedCh === ch) {
-            return <span key={ci} className="text-primary">{ch}</span>;
+            return (
+              <span key={ci} className="text-primary">
+                {ch}
+              </span>
+            )
           }
-          return <span key={ci} className="text-destructive">{typedCh}</span>;
+          return (
+            <span key={ci} className="text-destructive">
+              {typedCh}
+            </span>
+          )
         })}
         {typed.length > target.length &&
-          typed.slice(target.length).split("").map((ch, ci) => (
-            <span key={`extra-${ci}`} className="text-destructive opacity-60">{ch}</span>
-          ))}
+          typed
+            .slice(target.length)
+            .split("")
+            .map((ch, ci) => (
+              <span key={`extra-${ci}`} className="text-destructive opacity-60">
+                {ch}
+              </span>
+            ))}
       </div>
     </div>
-  );
+  )
 }
 
 function downloadWordReviewCsv(
   targetWords: string[],
   wordInputs: string[],
-  wordTimingsMs: number[],
+  wordTimingsMs: number[]
 ) {
-  const headers = ["#", "target", "typed", "correct", "char_accuracy_%", "time_ms"];
+  const headers = [
+    "#",
+    "target",
+    "typed",
+    "correct",
+    "char_accuracy_%",
+    "time_ms",
+  ]
   const rows = targetWords.map((target, i) => {
-    const typed = wordInputs[i] ?? "";
-    const reached = wordInputs[i] !== undefined;
-    if (!reached) return [i + 1, target, "", "not_reached", "", ""].join(",");
+    const typed = wordInputs[i] ?? ""
+    const reached = wordInputs[i] !== undefined
+    if (!reached) return [i + 1, target, "", "not_reached", "", ""].join(",")
 
-    const correct = typed === target;
+    const correct = typed === target
 
     // character-level accuracy: count matching chars / max(target, typed) length
-    const maxLen = Math.max(target.length, typed.length);
-    const matchedChars = target.split("").filter((ch, ci) => typed[ci] === ch).length;
-    const charAccuracy = maxLen > 0 ? Math.round((matchedChars / maxLen) * 100) : 100;
+    const maxLen = Math.max(target.length, typed.length)
+    const matchedChars = target
+      .split("")
+      .filter((ch, ci) => typed[ci] === ch).length
+    const charAccuracy =
+      maxLen > 0 ? Math.round((matchedChars / maxLen) * 100) : 100
 
-    const timeMs = wordTimingsMs[i] !== undefined ? wordTimingsMs[i] : "";
+    const timeMs = wordTimingsMs[i] !== undefined ? wordTimingsMs[i] : ""
 
     return [
       i + 1,
@@ -803,29 +907,35 @@ function downloadWordReviewCsv(
       correct ? "correct" : "wrong",
       charAccuracy,
       timeMs,
-    ].join(",");
-  });
+    ].join(",")
+  })
 
-  const csv = [headers.join(","), ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `word-review-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const csv = [headers.join(","), ...rows].join("\n")
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `word-review-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function WordReviewModal({ stats }: { stats: ResultStats }) {
-  const { wordInputs = [], targetWords = [], wordTimingsMs = [] } = stats;
-  const [showUnreached, setShowUnreached] = useState(false);
+  const { wordInputs = [], targetWords = [], wordTimingsMs = [] } = stats
+  const [showUnreached, setShowUnreached] = useState(false)
 
-  if (targetWords.length === 0) return null;
+  if (targetWords.length === 0) return null
 
-  const reachedWords = targetWords.filter((_, i) => wordInputs[i] !== undefined);
-  const unreachedWords = targetWords.filter((_, i) => wordInputs[i] === undefined);
-  const correctWordCount = reachedWords.filter((w, i) => wordInputs[i] === w).length;
-  const totalTyped = reachedWords.length;
+  const reachedIndices = targetWords
+    .map((_, i) => i)
+    .filter((i) => wordInputs[i] !== undefined)
+  const unreachedWords = targetWords.filter(
+    (_, i) => wordInputs[i] === undefined
+  )
+  const correctWordCount = reachedIndices.filter(
+    (i) => wordInputs[i] === targetWords[i]
+  ).length
+  const totalTyped = reachedIndices.length
 
   return (
     <Dialog onOpenChange={() => setShowUnreached(false)}>
@@ -833,14 +943,14 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
         <CornerBrackets className="inline-flex">
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
           >
             <IconAlignLeft size={16} stroke={1.5} aria-hidden />
             Word Review
           </button>
         </CornerBrackets>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+      <DialogContent className="flex max-h-[80vh] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span>Word Review</span>
@@ -851,17 +961,25 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
         </DialogHeader>
 
         {/* Summary row */}
-        <div className="flex items-center gap-2 border-b border-border pb-3 text-xs text-muted-foreground shrink-0">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border pb-3 text-xs text-muted-foreground">
           <span>
-            <span className="text-primary font-semibold">{correctWordCount}</span> correct
+            <span className="font-semibold text-primary">
+              {correctWordCount}
+            </span>{" "}
+            correct
           </span>
           <span>
-            <span className="text-destructive font-semibold">{totalTyped - correctWordCount}</span> wrong
+            <span className="font-semibold text-destructive">
+              {totalTyped - correctWordCount}
+            </span>{" "}
+            wrong
           </span>
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => downloadWordReviewCsv(targetWords, wordInputs, wordTimingsMs)}
+              onClick={() =>
+                downloadWordReviewCsv(targetWords, wordInputs, wordTimingsMs)
+              }
               className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[10px] text-muted-foreground/60 transition-colors hover:border-border hover:text-muted-foreground focus-visible:outline-none"
               title="Download word review as CSV"
             >
@@ -888,22 +1006,16 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
         </div>
 
         {/* Word grid */}
-        <div className="overflow-y-auto flex-1 pr-1">
+        <div className="flex-1 overflow-y-auto pr-1">
           {/* Reached words */}
           <div className="flex flex-wrap gap-2 py-1">
-            {targetWords
-              .filter((_, i) => wordInputs[i] !== undefined)
-              .map((target, idx) => {
-                let origIdx = 0;
-                let reached = 0;
-                for (let i = 0; i < targetWords.length; i++) {
-                  if (wordInputs[i] !== undefined) {
-                    if (reached === idx) { origIdx = i; break; }
-                    reached++;
-                  }
-                }
-                return <WordChip key={origIdx} target={target} typed={wordInputs[origIdx]!} />;
-              })}
+            {reachedIndices.map((origIdx) => (
+              <WordChip
+                key={origIdx}
+                target={targetWords[origIdx]}
+                typed={wordInputs[origIdx]!}
+              />
+            ))}
           </div>
 
           {/* Unreached words — animated collapse */}
@@ -924,7 +1036,7 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                   className="mt-3 border-t border-border/40 pt-3"
                 >
-                  <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground/40">
+                  <p className="mb-2 text-[10px] tracking-widest text-muted-foreground/40 uppercase">
                     Not reached
                   </p>
                   <div className="flex flex-wrap gap-2 pb-1">
@@ -933,7 +1045,11 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
                         key={`u-${i}`}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.15, delay: i * 0.008, ease: "easeOut" }}
+                        transition={{
+                          duration: 0.15,
+                          delay: i * 0.008,
+                          ease: "easeOut",
+                        }}
                         className="rounded-md border border-border/30 px-2 py-1 font-mono text-xs text-muted-foreground/30"
                       >
                         {target}
@@ -947,7 +1063,7 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
         </div>
 
         {/* Legend */}
-        <div className="flex gap-4 border-t border-border pt-3 text-[10px] text-muted-foreground shrink-0">
+        <div className="flex shrink-0 gap-4 border-t border-border pt-3 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-[2px] bg-primary/60" />
             correct
@@ -963,34 +1079,39 @@ function WordReviewModal({ stats }: { stats: ResultStats }) {
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
-function DownloadResultsPopover({ stats, pb }: { stats: ResultStats; pb?: { isNewPb: boolean; previous?: { wpm: number; accuracy: number; date: string } | null } | null }) {
+function DownloadResultsPopover({ stats }: { stats: ResultStats }) {
   const downloadJson = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stats, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `typing-test-${new Date().toISOString()}.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
+    const dataStr =
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(stats, null, 2))
+    const downloadAnchorNode = document.createElement("a")
+    downloadAnchorNode.setAttribute("href", dataStr)
+    downloadAnchorNode.setAttribute(
+      "download",
+      `typing-test-${new Date().toISOString()}.json`
+    )
+    document.body.appendChild(downloadAnchorNode)
+    downloadAnchorNode.click()
+    downloadAnchorNode.remove()
+  }
 
   const downloadCsv = () => {
-    const headers = ["second", "wpm", "raw", "errors"];
-    const rows = stats.wpmHistory.map(row =>
-      headers.map(header => row[header as keyof WpmSnapshot] ?? 0).join(",")
-    );
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `typing-test-${new Date().toISOString()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    const headers = ["second", "wpm", "raw", "errors"]
+    const rows = stats.wpmHistory.map((row) =>
+      headers.map((header) => row[header as keyof WpmSnapshot] ?? 0).join(",")
+    )
+    const csv = [headers.join(","), ...rows].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `typing-test-${new Date().toISOString()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <Popover>
@@ -998,7 +1119,7 @@ function DownloadResultsPopover({ stats, pb }: { stats: ResultStats; pb?: { isNe
         <CornerBrackets className="inline-flex">
           <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+            className="flex items-center gap-2 px-4 py-2 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
           >
             <IconDownload size={16} stroke={1.5} aria-hidden />
             Download
@@ -1012,51 +1133,61 @@ function DownloadResultsPopover({ stats, pb }: { stats: ResultStats; pb?: { isNe
         className="w-36 p-1"
       >
         <div className="flex flex-col gap-1">
-          <button onClick={downloadJson} className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted text-foreground transition-colors">JSON format</button>
-          <button onClick={downloadCsv} className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted text-foreground transition-colors">CSV format</button>
+          <button
+            onClick={downloadJson}
+            className="w-full rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted"
+          >
+            JSON format
+          </button>
+          <button
+            onClick={downloadCsv}
+            className="w-full rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted"
+          >
+            CSV format
+          </button>
         </div>
       </PopoverContent>
     </Popover>
-  );
+  )
 }
 
 function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [breakpoint]);
-  return isMobile;
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [breakpoint])
+  return isMobile
 }
 
 function CalculationFormulaPopover() {
-  const isMobile = useIsMobile();
-  const [open, setOpen] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMobile = useIsMobile()
+  const [open, setOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const cancelClose = () => {
     if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
     }
-  };
+  }
   const scheduleClose = () => {
-    cancelClose();
-    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
-  };
+    cancelClose()
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120)
+  }
 
   const hoverProps = isMobile
     ? {}
     : {
         onMouseEnter: () => {
-          cancelClose();
-          setOpen(true);
+          cancelClose()
+          setOpen(true)
         },
         onMouseLeave: scheduleClose,
-      };
+      }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1064,7 +1195,7 @@ function CalculationFormulaPopover() {
         <button
           type="button"
           aria-label="How it's calculated"
-          className="inline-flex items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-0"
+          className="inline-flex items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none"
           {...hoverProps}
         >
           <IconInfoCircle size={14} stroke={1.5} aria-hidden />
@@ -1081,61 +1212,61 @@ function CalculationFormulaPopover() {
         <CalculationFormulaBody />
       </PopoverContent>
     </Popover>
-  );
+  )
 }
 
 function CalculationFormulaBody() {
   return (
     <>
-          <p className="mb-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-            How it&apos;s calculated
-          </p>
-          <dl className="space-y-4">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
-              <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
-                WPM
-              </dt>
-              <dd className="min-w-0">
-                <p className="font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-                  ((correct word chars + correct spaces) ÷ 5) ÷ minutes
-                </p>
-                <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                  Spaces between correct words count; in time/zen, a correct
-                  prefix of the last word counts before you press space.
-                </p>
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
-              <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
-                Raw
-              </dt>
-              <dd className="min-w-0 font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-                (all typed chars ÷ 5) ÷ minutes
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
-              <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
-                Consistency
-              </dt>
-              <dd className="min-w-0">
-                <p className="font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-                  100 − (σ ÷ μ × 100)
-                </p>
-                <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-                  σ and μ use your WPM at each second of the test: σ is
-                  standard deviation, μ is the mean. Higher consistency means
-                  steadier pacing.
-                </p>
-              </dd>
-            </div>
-          </dl>
+      <p className="mb-3 text-[10px] font-medium tracking-widest text-muted-foreground uppercase">
+        How it&apos;s calculated
+      </p>
+      <dl className="space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
+            WPM
+          </dt>
+          <dd className="min-w-0">
+            <p className="font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+              ((correct word chars + correct spaces) ÷ 5) ÷ minutes
+            </p>
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              Spaces between correct words count; in time/zen, a correct prefix
+              of the last word counts before you press space.
+            </p>
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
+            Raw
+          </dt>
+          <dd className="min-w-0 font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+            (all typed chars ÷ 5) ÷ minutes
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-5">
+          <dt className="shrink-0 text-xs font-semibold text-primary sm:w-28">
+            Consistency
+          </dt>
+          <dd className="min-w-0">
+            <p className="font-mono text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+              100 − (σ ÷ μ × 100)
+            </p>
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              σ and μ use your WPM at each second of the test: σ is standard
+              deviation, μ is the mean. Higher consistency means steadier
+              pacing.
+            </p>
+          </dd>
+        </div>
+      </dl>
     </>
-  );
+  )
 }
 
 function capitalize(s: string): string {
-  if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  if (!s) return s
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function StatBig({
@@ -1143,9 +1274,9 @@ function StatBig({
   value,
   labelAdornment,
 }: {
-  label: string;
-  value: string | number;
-  labelAdornment?: ReactNode;
+  label: string
+  value: string | number
+  labelAdornment?: ReactNode
 }) {
   return (
     <div className="flex flex-col">
@@ -1157,15 +1288,23 @@ function StatBig({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="font-mono text-6xl font-bold leading-none text-primary"
+        className="font-mono text-6xl leading-none font-bold text-primary"
       >
         {value}
       </motion.span>
     </div>
-  );
+  )
 }
 
-function StatBox({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function StatBox({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string | number
+  hint?: string
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -1177,9 +1316,13 @@ function StatBox({ label, value, hint }: { label: string; value: string | number
       >
         {value}
       </motion.span>
-      {hint && <span className="text-[10px] text-muted-foreground opacity-40">{hint}</span>}
+      {hint && (
+        <span className="text-[10px] text-muted-foreground opacity-40">
+          {hint}
+        </span>
+      )}
     </div>
-  );
+  )
 }
 
 function ChartHoverCard({
@@ -1189,41 +1332,49 @@ function ChartHoverCard({
   burst,
   personalBest,
 }: {
-  active?: boolean;
-  payload?: ReadonlyArray<{ payload?: WpmSnapshot }>;
-  label?: string | number;
-  burst: number;
-  personalBest?: number;
+  active?: boolean
+  payload?: ReadonlyArray<{ payload?: WpmSnapshot }>
+  label?: string | number
+  burst: number
+  personalBest?: number
 }) {
   if (!active || !payload?.length) {
-    return null;
+    return null
   }
 
-  const row = payload[0]?.payload;
+  const row = payload[0]?.payload
   if (!row) {
-    return null;
+    return null
   }
 
   return (
     <div className="min-w-[9rem] rounded-md border border-border bg-popover/95 px-2.5 py-2 font-mono text-popover-foreground shadow-lg backdrop-blur">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold leading-none tabular-nums">
+        <span className="text-sm leading-none font-semibold tabular-nums">
           {label}s
         </span>
         {personalBest ? (
-          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">
             peak {personalBest}
           </span>
         ) : null}
       </div>
       <div className="grid gap-0.5 text-[11px]">
-        <ChartTooltipRow color="var(--destructive)" label="errors" value={row.errors} />
-        <ChartTooltipRow color="var(--color-primary)" label="wpm" value={row.wpm} />
+        <ChartTooltipRow
+          color="var(--destructive)"
+          label="errors"
+          value={row.errors}
+        />
+        <ChartTooltipRow
+          color="var(--color-primary)"
+          label="wpm"
+          value={row.wpm}
+        />
         <ChartTooltipRow color="currentColor" label="raw" value={row.raw} dim />
         <ChartTooltipRow color="currentColor" label="burst" value={burst} dim />
       </div>
     </div>
-  );
+  )
 }
 
 function ChartTooltipRow({
@@ -1232,10 +1383,10 @@ function ChartTooltipRow({
   value,
   dim = false,
 }: {
-  color: string;
-  label: string;
-  value: string | number;
-  dim?: boolean;
+  color: string
+  label: string
+  value: string | number
+  dim?: boolean
 }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -1244,9 +1395,9 @@ function ChartTooltipRow({
         style={{ backgroundColor: color, opacity: dim ? 0.35 : 1 }}
       />
       <span className="min-w-[3.5rem] text-muted-foreground">{label}</span>
-      <span className="ml-auto text-xs font-semibold tabular-nums text-foreground">
+      <span className="ml-auto text-xs font-semibold text-foreground tabular-nums">
         {value}
       </span>
     </div>
-  );
+  )
 }
