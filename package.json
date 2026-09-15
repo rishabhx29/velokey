@@ -29,7 +29,7 @@
     "check:unused": "knip",
     "audit:lighthouse": "lighthouse http://127.0.0.1:3000 --output=html --output-path=./lighthouse-report.html",
     "prepare": "husky",
-    "postinstall": "node -e \"const fs=require('fs');const raw=fs.readFileSync('./node_modules/inspirational-quotes/data/data.json','utf8');fs.mkdirSync('./data',{recursive:true});fs.writeFileSync('./data/quotes.json',JSON.stringify(JSON.parse(raw.replace(/^\\uFEFF/,''))));\" && node scripts/generate-code-data.mjs && node scripts/sync-theme-fonts.mjs && node scripts/sync-theme-accents.mjs"
+    "postinstall": "node -e \"const fs=require('fs');const raw=fs.readFileSync('./node_modules/inspirational-quotes/data/data.json','utf8');fs.mkdirSync('./data',{recursive:true});fs.writeFileSync('./data/quotes.json',JSON.stringify(JSON.parse(raw.replace(/^\\uFEFF/,''))));\" && node scripts/repair-quotes.cjs && node scripts/attribute-quotes.cjs && node scripts/generate-code-data.mjs && node scripts/sync-theme-fonts.mjs && node scripts/sync-theme-accents.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -50,7 +50,6 @@
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
     "html-to-image": "^1.11.13",
     "inspirational-quotes": "^2.0.1",
     "lucide-react": "^1.8.0",
@@ -74,8 +73,6 @@
     "web-haptics": "^0.0.6"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
-    "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^16.2.10",
     "@playwright/test": "^1.61.1",
     "@storybook/addon-a11y": "^10.5.2",
@@ -84,7 +81,6 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -98,6 +94,7 @@
     "lighthouse": "^13.4.0",
     "lint-staged": "^17.1.0",
     "postcss": "^8",
+    "postcss-load-config": "^6.0.1",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "storybook": "^10.5.2",
