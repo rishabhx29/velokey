@@ -1,7 +1,8 @@
 import type { QuoteLength } from "@/lib/quotes"
 import type { Difficulty } from "@/lib/words"
 
-export type TestMode = "time" | "words" | "quote" | "zen" | "code" | "custom" | "brainrot" | "focus"
+export type TestMode =
+  "time" | "words" | "quote" | "zen" | "code" | "custom" | "brainrot" | "focus"
 export type TimeOption = number
 export type WordOption = number
 
@@ -15,13 +16,21 @@ export const DIFFICULTY_STORAGE_KEY = "tc-difficulty"
 export const CUSTOM_TEXT_STORAGE_KEY = "tc-custom-text"
 export const CODE_LANGUAGE_STORAGE_KEY = "tc-code-language"
 export const CODE_CHAPTER_STORAGE_KEY = "tc-code-chapter"
-export const CODE_EXT_STORAGE_KEY = "tc-code-ext"
 export const CUSTOM_CODE_LANGUAGE_STORAGE_KEY = "tc-custom-code-language"
 
 export const DEFAULT_CUSTOM_TEXT =
   "Never gonna give you up, never gonna let you down Never gonna run around and desert you Never gonna make you cry, never gonna say goodbye Never gonna tell a lie and hurt you"
 
-const VALID_TEST_MODES: readonly TestMode[] = [ "time", "words", "quote", "zen", "custom", "code", "brainrot", "focus" ]
+const VALID_TEST_MODES: readonly TestMode[] = [
+  "time",
+  "words",
+  "quote",
+  "zen",
+  "custom",
+  "code",
+  "brainrot",
+  "focus",
+]
 const VALID_QUOTE_LENGTHS: readonly QuoteLength[] = ["short", "medium", "long"]
 const VALID_DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"]
 
@@ -42,8 +51,7 @@ export function readStoredTimeOption(): TimeOption | undefined {
   const raw = localStorage.getItem(TIME_OPTION_STORAGE_KEY)
   if (raw === null) return undefined
   const n = Number(raw)
-  if (!Number.isFinite(n) || n <= 0)
-    return undefined
+  if (!Number.isFinite(n) || n <= 0) return undefined
   return n as TimeOption
 }
 
@@ -52,8 +60,7 @@ export function readStoredWordOption(): WordOption | undefined {
   const raw = localStorage.getItem(WORD_OPTION_STORAGE_KEY)
   if (raw === null) return undefined
   const n = Number(raw)
-  if (!Number.isFinite(n) || n <= 0)
-    return undefined
+  if (!Number.isFinite(n) || n <= 0) return undefined
   return n as WordOption
 }
 
@@ -96,11 +103,6 @@ export function readStoredCodeLanguage(): string | undefined {
 export function readStoredCodeChapter(): string | undefined {
   if (!isBrowser()) return undefined
   return localStorage.getItem(CODE_CHAPTER_STORAGE_KEY) || undefined
-}
-
-export function readStoredCodeExt(): string | undefined {
-  if (!isBrowser()) return undefined
-  return localStorage.getItem(CODE_EXT_STORAGE_KEY) || undefined
 }
 
 export function readStoredCustomCodeLanguage(): string | undefined {
