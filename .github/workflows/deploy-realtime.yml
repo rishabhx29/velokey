@@ -1,0 +1,44 @@
+name: Deploy Realtime
+
+# Deploys the PartyKit multiplayer service independently of the web app,
+# matching the repo's architecture: `realtime/` is its own service.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "realtime/**"
+      - "shared/**"
+      - "partykit.json"
+      - ".github/workflows/deploy-realtime.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-realtime
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy PartyKit race server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck realtime + shared
+        run: npm run typecheck
+
+      - name: Deploy
+        # Set PARTYKIT_TOKEN (and optionally PARTYKIT_ORG / PARTYKIT_PROJECT)
+        # in the repository's Actions secrets. Create the token with
+        # `npx partykit login` → Settings → Tokens on partykit.io.
+        run: npm run realtime:deploy
+        env:
+          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
