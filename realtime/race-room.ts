@@ -22,6 +22,7 @@ import {
   MATCHMAKER_ROOM_ID,
   PROGRESS_BROADCAST_MS,
 } from "../shared/race-protocol"
+import { validateResultStats } from "../shared/result-validation"
 
 // ── Word generation (server-side, simplified) ────────────────────────────────
 // We can't import `random-words` npm package in PartyKit edge runtime easily,
@@ -450,6 +451,8 @@ interface RoomState {
   countdownTimer: ReturnType<typeof setInterval> | null
   countdownValue: number
   raceStartTime: number
+  /** Auto-end timer for time mode — must be cleared on early end/rematch. */
+  raceEndTimer: ReturnType<typeof setTimeout> | null
   inactivityTimer: ReturnType<typeof setTimeout> | null
   disconnectTimers: Map<string, ReturnType<typeof setTimeout>>
   progressBroadcastTimer: ReturnType<typeof setTimeout> | null
@@ -491,6 +494,7 @@ export default class RaceRoom implements Party.Server {
       countdownTimer: null,
       countdownValue: COUNTDOWN_SECONDS,
       raceStartTime: 0,
+      raceEndTimer: null,
       inactivityTimer: null,
       disconnectTimers: new Map(),
       progressBroadcastTimer: null,
@@ -778,10 +782,14 @@ export default class RaceRoom implements Party.Server {
 
         this.broadcastRoomState()
 
-        // For time mode, set a timer to auto-end the race
+        // For time mode, set a timer to auto-end the race. Stored so an
+        // early end or rematch clears it — a stale timer would otherwise
+        // kill a freshly restarted race.
         if (this.state.config.mode === "time") {
-          setTimeout(
+          if (this.state.raceEndTimer) clearTimeout(this.state.raceEndTimer)
+          this.state.raceEndTimer = setTimeout(
             () => {
+              this.state.raceEndTimer = null
               if (this.state.status === "racing") {
                 this.endRace()
               }
@@ -825,15 +833,58 @@ export default class RaceRoom implements Party.Server {
     const progress = this.state.progress.get(connectionId)
     if (!progress || progress.finished) return
 
+    // Server-side anti-cheat: the client's numbers are a claim, not truth.
+    // Run the same heuristics the web client uses (shared/result-validation)
+    // and reject impossible/spoofed results before they reach the leaderboard.
+    const validation = validateResultStats(
+      {
+        wpm: msg.wpm,
+        raw: msg.wpm,
+        accuracy: msg.accuracy,
+        correctChars: msg.correctChars,
+        incorrectChars: msg.incorrectChars,
+        extraChars: 0,
+        elapsedSeconds: msg.elapsedSeconds,
+        wpmHistory: msg.wpmHistory,
+      },
+      msg.consistency
+    )
+    const sender = this.room.getConnection<unknown>(connectionId)
+    if (!validation.valid) {
+      if (sender)
+        this.send(sender, {
+          type: "error",
+          message: `Result rejected by server validation (${validation.reason})`,
+        })
+      // Count as finished with zeroed stats so the race can still end.
+      progress.finished = true
+      progress.wpm = 0
+      progress.accuracy = 0
+      progress.elapsedSeconds = 0
+      this.flushProgressBroadcast()
+      this.checkRaceEnd()
+      return
+    }
+
+    // Trust the server clock, not the client's, for elapsed time.
+    const serverElapsedSeconds = (Date.now() - this.state.raceStartTime) / 1000
+
     progress.finished = true
     progress.wpm = msg.wpm
     progress.accuracy = msg.accuracy
-    progress.elapsedSeconds = msg.elapsedSeconds
-    this.state.finishData.set(connectionId, msg)
+    progress.elapsedSeconds = serverElapsedSeconds
+    this.state.finishData.set(connectionId, {
+      ...msg,
+      elapsedSeconds: serverElapsedSeconds,
+    })
 
     this.flushProgressBroadcast()
 
-    // Check if all players finished
+    this.checkRaceEnd()
+  }
+
+  /** Ends the race when every tracked player has finished. */
+  private checkRaceEnd() {
     const allFinished = Array.from(this.state.progress.values()).every(
       (p) => p.finished
     )
@@ -849,6 +900,10 @@ export default class RaceRoom implements Party.Server {
     if (this.state.countdownTimer) {
       clearInterval(this.state.countdownTimer)
       this.state.countdownTimer = null
+    }
+    if (this.state.raceEndTimer) {
+      clearTimeout(this.state.raceEndTimer)
+      this.state.raceEndTimer = null
     }
 
     // Build leaderboard
@@ -869,8 +924,28 @@ export default class RaceRoom implements Party.Server {
       })
     }
 
-    // Sort by WPM descending
-    entries.sort((a, b) => b.wpm - a.wpm)
+    // Ranking semantics:
+    // - words mode is a first-to-finish race: earliest finish wins (DNF last),
+    //   WPM breaks ties.
+    // - time mode is a highest-score contest: WPM wins, accuracy then time
+    //   break ties.
+    const finishedBefore = (e: LeaderboardEntry) =>
+      e.elapsedSeconds > 0 ? 0 : 1
+    if (this.state.config.mode === "words") {
+      entries.sort(
+        (a, b) =>
+          finishedBefore(a) - finishedBefore(b) ||
+          (finishedBefore(a) === 0 ? a.elapsedSeconds - b.elapsedSeconds : 0) ||
+          b.wpm - a.wpm
+      )
+    } else {
+      entries.sort(
+        (a, b) =>
+          b.wpm - a.wpm ||
+          b.accuracy - a.accuracy ||
+          a.elapsedSeconds - b.elapsedSeconds
+      )
+    }
     entries.forEach((e, i) => {
       e.placement = i + 1
     })
@@ -890,6 +965,11 @@ export default class RaceRoom implements Party.Server {
     this.state.words = []
     this.state.progress.clear()
     this.state.finishData.clear()
+    if (this.state.raceEndTimer) {
+      clearTimeout(this.state.raceEndTimer)
+      this.state.raceEndTimer = null
+    }
+    this.state.raceStartTime = 0
     for (const [, player] of this.state.players) {
       player.ready = false
     }
@@ -945,12 +1025,7 @@ export default class RaceRoom implements Party.Server {
 
     // If mid-race, check if all remaining players finished
     if (this.state.status === "racing" && this.state.players.size > 0) {
-      const allFinished = Array.from(this.state.progress.values()).every(
-        (p) => p.finished
-      )
-      if (allFinished) {
-        this.endRace()
-      }
+      this.checkRaceEnd()
     }
 
     // When the last player leaves mid-race, reset the room so a fresh join
@@ -963,6 +1038,10 @@ export default class RaceRoom implements Party.Server {
       if (this.state.countdownTimer) {
         clearInterval(this.state.countdownTimer)
         this.state.countdownTimer = null
+      }
+      if (this.state.raceEndTimer) {
+        clearTimeout(this.state.raceEndTimer)
+        this.state.raceEndTimer = null
       }
       this.state.raceStartTime = 0
     }
