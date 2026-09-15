@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "app/sw.ts",
+    "realtime/race-room.ts",
+    "scripts/*.cjs",
+    "scripts/*.mjs",
+    "tests/**/*.{test,spec}.{ts,tsx}",
+    ".storybook/{main,preview}.ts",
+    "components/**/*.stories.tsx"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "hooks/**/*.ts",
+    "lib/**/*.ts",
+    "realtime/**/*.ts",
+    "shared/**/*.ts",
+    "scripts/**/*.{cjs,mjs}",
+    "tests/**/*.{ts,tsx}"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "tailwindcss",
+    "tw-animate-css",
+    "shadcn",
+    "inspirational-quotes"
+  ],
+  "ignore": ["components/ui/**", "components/animate-ui/**"]
+}
