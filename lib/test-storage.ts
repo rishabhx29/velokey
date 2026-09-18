@@ -3,8 +3,6 @@ import type { Difficulty } from "@/lib/words"
 
 export type TestMode =
   "time" | "words" | "quote" | "zen" | "code" | "custom" | "brainrot" | "focus"
-export type TimeOption = number
-export type WordOption = number
 
 export const TEST_MODE_STORAGE_KEY = "tc-test-mode"
 export const TIME_OPTION_STORAGE_KEY = "tc-time-option"
@@ -46,22 +44,22 @@ export function readStoredTestMode(): TestMode | undefined {
   return raw as TestMode
 }
 
-export function readStoredTimeOption(): TimeOption | undefined {
+export function readStoredTimeOption(): number | undefined {
   if (!isBrowser()) return undefined
   const raw = localStorage.getItem(TIME_OPTION_STORAGE_KEY)
   if (raw === null) return undefined
   const n = Number(raw)
   if (!Number.isFinite(n) || n <= 0) return undefined
-  return n as TimeOption
+  return n
 }
 
-export function readStoredWordOption(): WordOption | undefined {
+export function readStoredWordOption(): number | undefined {
   if (!isBrowser()) return undefined
   const raw = localStorage.getItem(WORD_OPTION_STORAGE_KEY)
   if (raw === null) return undefined
   const n = Number(raw)
   if (!Number.isFinite(n) || n <= 0) return undefined
-  return n as WordOption
+  return n
 }
 
 export function readStoredQuoteLength(): QuoteLength | undefined {

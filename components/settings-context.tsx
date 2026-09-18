@@ -260,80 +260,64 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     // Any localStorage failure (private mode, quota, security policy) must
     // still release the loading gate so the app remains usable.
     try {
-      const savedAccent = localStorage.getItem(
-        "tc-accent"
-      ) as AccentColor | null
-      const savedFont = localStorage.getItem("tc-font") as TypingFont | null
-      const savedColorTheme = localStorage.getItem("tc-color-theme")
-      const savedColorThemeUrl = localStorage.getItem("tc-color-theme-url")
-      const savedShowKeyboard = localStorage.getItem("tc-show-keyboard")
-      const savedKeyboardStyle = localStorage.getItem(
-        "tc-keyboard-style"
-      ) as KeyboardStyle | null
-      const savedSoundEnabled = localStorage.getItem("tc-sound-enabled")
-      const savedClickSoundEnabled = localStorage.getItem(
-        "tc-click-sound-enabled"
-      )
-      const savedRealtimeWpm = localStorage.getItem("tc-realtime-wpm")
-      const savedFaahMode = localStorage.getItem("tc-faah-mode")
-      const savedGhostMode = localStorage.getItem("tc-ghost-mode")
-      const savedShakeMode = localStorage.getItem("tc-shake-mode")
-      const savedSoundPack = localStorage.getItem(
-        "tc-sound-pack"
-      ) as SoundPack | null
-      const savedLanguage = localStorage.getItem("tc-language")
-      const savedShowDiacritics = localStorage.getItem("tc-show-diacritics")
-      const savedFontSize = localStorage.getItem(
-        "tc-font-size"
-      ) as FontSize | null
-      const savedSyntaxHighlighting = localStorage.getItem(
-        "tc-syntax-highlighting"
-      )
-      const savedAutoPair = localStorage.getItem("tc-auto-pair")
-      const savedShowLineNumbers = localStorage.getItem("tc-show-line-numbers")
+      const read = (key: string) => localStorage.getItem(key)
+      const readBool = (key: string) => {
+        const raw = read(key)
+        return raw === null ? null : raw !== "false"
+      }
 
-      const initialAccent = savedAccent ?? "teal"
+      const initialAccent = (read("tc-accent") as AccentColor | null) ?? "teal"
       setAccentState(initialAccent)
       applyAccentToDom(initialAccent)
 
+      const savedFont = read("tc-font") as TypingFont | null
       if (savedFont) {
         setFontState(savedFont)
         applyFontToDom(savedFont)
       }
+
+      const savedColorTheme = read("tc-color-theme")
       if (savedColorTheme) {
-        const savedFontSans = localStorage.getItem("tc-color-theme-font-sans")
-        const savedFontMono = localStorage.getItem("tc-color-theme-font-mono")
         setColorThemeState(savedColorTheme)
         // Pass initialAccent so applyColorThemeToDom can restore data-accent if needed
-        applyColorThemeToDom(savedColorThemeUrl ?? null, initialAccent)
-        applyThemeFontsToDom(savedFontSans, savedFontMono)
+        applyColorThemeToDom(read("tc-color-theme-url") ?? null, initialAccent)
+        applyThemeFontsToDom(
+          read("tc-color-theme-font-sans"),
+          read("tc-color-theme-font-mono")
+        )
       }
-      if (savedShowKeyboard !== null)
-        setShowKeyboardState(savedShowKeyboard !== "false")
+
+      const savedKeyboardStyle = read(
+        "tc-keyboard-style"
+      ) as KeyboardStyle | null
       if (savedKeyboardStyle) setKeyboardStyleState(savedKeyboardStyle)
-      if (savedSoundEnabled !== null)
-        setSoundEnabledState(savedSoundEnabled !== "false")
-      if (savedClickSoundEnabled !== null)
-        setClickSoundEnabledState(savedClickSoundEnabled !== "false")
-      if (savedRealtimeWpm !== null)
-        setRealtimeWpmState(savedRealtimeWpm === "true")
-      if (savedFaahMode !== null) setFaahModeState(savedFaahMode === "true")
-      if (savedGhostMode !== null) setGhostModeState(savedGhostMode === "true")
-      if (savedShakeMode !== null) setShakeModeState(savedShakeMode === "true")
+      const savedSoundPack = read("tc-sound-pack") as SoundPack | null
       if (savedSoundPack) setSoundPackState(savedSoundPack)
+      const savedLanguage = read("tc-language")
       if (savedLanguage) setLanguageState(savedLanguage)
-      if (savedShowDiacritics !== null)
-        setShowDiacriticsState(savedShowDiacritics !== "false")
+      const savedFontSize = read("tc-font-size") as FontSize | null
       if (savedFontSize) setFontSizeState(savedFontSize)
-      if (savedSyntaxHighlighting !== null)
-        setSyntaxHighlightingState(savedSyntaxHighlighting !== "false")
-      if (savedAutoPair !== null) setAutoPairState(savedAutoPair !== "false")
-      if (savedShowLineNumbers !== null)
-        setShowLineNumbersState(savedShowLineNumbers !== "false")
-      const savedPaceBotEnabled = localStorage.getItem("tc-pace-bot-enabled")
-      const savedPaceBotWpm = localStorage.getItem("tc-pace-bot-wpm")
-      if (savedPaceBotEnabled !== null)
-        setPaceBotEnabledState(savedPaceBotEnabled === "true")
+
+      const boolSettings: [string, (v: boolean) => void][] = [
+        ["tc-show-keyboard", setShowKeyboardState],
+        ["tc-sound-enabled", setSoundEnabledState],
+        ["tc-click-sound-enabled", setClickSoundEnabledState],
+        ["tc-realtime-wpm", setRealtimeWpmState],
+        ["tc-faah-mode", setFaahModeState],
+        ["tc-ghost-mode", setGhostModeState],
+        ["tc-shake-mode", setShakeModeState],
+        ["tc-show-diacritics", setShowDiacriticsState],
+        ["tc-syntax-highlighting", setSyntaxHighlightingState],
+        ["tc-auto-pair", setAutoPairState],
+        ["tc-show-line-numbers", setShowLineNumbersState],
+        ["tc-pace-bot-enabled", setPaceBotEnabledState],
+      ]
+      for (const [key, setter] of boolSettings) {
+        const value = readBool(key)
+        if (value !== null) setter(value)
+      }
+
+      const savedPaceBotWpm = read("tc-pace-bot-wpm")
       if (savedPaceBotWpm !== null) {
         const parsed = parseInt(savedPaceBotWpm, 10)
         if (!isNaN(parsed) && parsed > 0) setPaceBotWpmState(parsed)

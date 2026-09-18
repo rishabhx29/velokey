@@ -25,6 +25,7 @@ import { DEFAULT_CUSTOM_TEXT } from "@/lib/test-storage"
 import type { CodeManifest } from "@/lib/code"
 import { getCodeContent } from "@/lib/code"
 import { cn } from "@/lib/utils"
+import { randomPick } from "@/lib/secure-random"
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -594,6 +595,128 @@ interface CustomTextDialogProps {
   codeManifest: CodeManifest
 }
 
+function readStoredCodePrefsFromStorage(): {
+  savedCodeMode: boolean
+  savedLang: string
+} {
+  try {
+    return {
+      savedCodeMode: localStorage.getItem(DIALOG_CODE_MODE_KEY) === "true",
+      savedLang: localStorage.getItem(DIALOG_CODE_LANG_KEY) ?? "",
+    }
+  } catch {
+    return { savedCodeMode: false, savedLang: "" }
+  }
+}
+
+function CodeLanguagePicker({
+  enabled,
+  codeManifest,
+  selectedLang,
+  onSelect,
+}: {
+  enabled: boolean
+  codeManifest: CodeManifest
+  selectedLang: string
+  onSelect: (lang: string) => void
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [search, setSearch] = useState("")
+
+  const filtered = (() => {
+    const q = search.trim().toLowerCase()
+    const all = Object.values(codeManifest)
+    if (!q) return all
+    return all.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q)
+    )
+  })()
+
+  const selectedName = codeManifest[selectedLang]?.name
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={!enabled}
+        onClick={() => {
+          if (enabled) {
+            setPickerOpen((v) => !v)
+            setSearch("")
+          }
+        }}
+        className={cn(
+          "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
+          enabled
+            ? "cursor-pointer hover:bg-muted/50"
+            : "cursor-not-allowed opacity-40"
+        )}
+      >
+        <span className="min-w-0 truncate text-muted-foreground">
+          {selectedName ?? "Select language…"}
+        </span>
+        <CaretDownIcon
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            pickerOpen && "rotate-180"
+          )}
+          weight="bold"
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {enabled && pickerOpen && (
+          <motion.div
+            key="lang-list"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
+          >
+            <div className="border-b border-border px-2 py-1.5">
+              <input
+                type="text"
+                placeholder="Search language..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
+              />
+            </div>
+            <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
+              {filtered.length > 0 ? (
+                filtered.map((lang) => (
+                  <button
+                    type="button"
+                    key={lang.code}
+                    onClick={() => {
+                      onSelect(lang.code)
+                      setPickerOpen(false)
+                      setSearch("")
+                    }}
+                    className={cn(
+                      "flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                      selectedLang === lang.code
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {lang.name}
+                  </button>
+                ))
+              ) : (
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  No languages found
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 export function CustomTextDialog({
   value,
   onSave,
@@ -604,21 +727,11 @@ export function CustomTextDialog({
   const [draft, setDraft] = useState(value)
   const [isCodeMode, setIsCodeMode] = useState(false)
   const [selectedLang, setSelectedLang] = useState("")
-  const [langPickerOpen, setLangPickerOpen] = useState(false)
-  const [langSearch, setLangSearch] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
-      let savedCodeMode = false
-      let savedLang = ""
-      try {
-        savedCodeMode = localStorage.getItem(DIALOG_CODE_MODE_KEY) === "true"
-        savedLang = localStorage.getItem(DIALOG_CODE_LANG_KEY) ?? ""
-      } catch {
-        savedCodeMode = false
-        savedLang = ""
-      }
+      const { savedCodeMode, savedLang } = readStoredCodePrefsFromStorage()
       queueMicrotask(() => {
         setDraft(value)
         setIsCodeMode(savedCodeMode)
@@ -640,61 +753,72 @@ export function CustomTextDialog({
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
-
     if (isCodeMode) {
-      const lang = EXT_TO_LANG[ext]
-      if (!lang) {
-        toast.error(`unsupported file type: .${ext}`)
-        return
-      }
-      try {
-        const text = await file.text()
-        setDraft(text)
-        setSelectedLang(lang)
-        localStorage.setItem(DIALOG_CODE_LANG_KEY, lang)
-        toast.success(`loaded ${file.name} as ${lang}`)
-      } catch {
-        toast.error("could not read file")
-      }
+      await loadAsCodeFile(file, ext)
     } else {
-      const detectedLang = EXT_TO_LANG[ext]
-      if (detectedLang) {
-        // Code file uploaded while in text mode — ask user to switch
-        try {
-          const text = await file.text()
-          toast(`${file.name} looks like ${detectedLang} code`, {
-            description:
-              "Switch to code mode to get syntax highlighting and line numbers.",
-            duration: 8000,
-            action: {
-              label: "Enable code mode",
-              onClick: () => {
-                setDraft(text)
-                setIsCodeMode(true)
-                setSelectedLang(detectedLang)
-                localStorage.setItem(DIALOG_CODE_MODE_KEY, "true")
-                localStorage.setItem(DIALOG_CODE_LANG_KEY, detectedLang)
-              },
-            },
-          })
-          // Also load the text as-is so they can still use it in text mode
-          setDraft(text)
-        } catch {
-          toast.error("could not read file")
-        }
-        return
-      }
-      if (ext !== "txt" && file.type !== "text/plain") {
-        toast.error("only .txt files are supported")
-        return
-      }
-      try {
-        const text = await file.text()
-        setDraft(text)
-        toast.success(`loaded ${file.name}`)
-      } catch {
-        toast.error("could not read file")
-      }
+      await loadAsTextFile(file, ext)
+    }
+  }
+
+  async function loadAsCodeFile(file: File, ext: string) {
+    const lang = EXT_TO_LANG[ext]
+    if (!lang) {
+      toast.error(`unsupported file type: .${ext}`)
+      return
+    }
+    try {
+      const text = await file.text()
+      setDraft(text)
+      setSelectedLang(lang)
+      localStorage.setItem(DIALOG_CODE_LANG_KEY, lang)
+      toast.success(`loaded ${file.name} as ${lang}`)
+    } catch {
+      toast.error("could not read file")
+    }
+  }
+
+  async function loadAsTextFile(file: File, ext: string) {
+    const detectedLang = EXT_TO_LANG[ext]
+    if (detectedLang) {
+      await offerCodeModeSwitch(file, detectedLang)
+      return
+    }
+    if (ext !== "txt" && file.type !== "text/plain") {
+      toast.error("only .txt files are supported")
+      return
+    }
+    try {
+      const text = await file.text()
+      setDraft(text)
+      toast.success(`loaded ${file.name}`)
+    } catch {
+      toast.error("could not read file")
+    }
+  }
+
+  async function offerCodeModeSwitch(file: File, detectedLang: string) {
+    // Code file uploaded while in text mode — ask user to switch
+    try {
+      const text = await file.text()
+      toast(`${file.name} looks like ${detectedLang} code`, {
+        description:
+          "Switch to code mode to get syntax highlighting and line numbers.",
+        duration: 8000,
+        action: {
+          label: "Enable code mode",
+          onClick: () => {
+            setDraft(text)
+            setIsCodeMode(true)
+            setSelectedLang(detectedLang)
+            localStorage.setItem(DIALOG_CODE_MODE_KEY, "true")
+            localStorage.setItem(DIALOG_CODE_LANG_KEY, detectedLang)
+          },
+        },
+      })
+      // Also load the text as-is so they can still use it in text mode
+      setDraft(text)
+    } catch {
+      toast.error("could not read file")
     }
   }
 
@@ -704,45 +828,136 @@ export function CustomTextDialog({
     void handleFile(f)
   }
 
-  function handleSave() {
+  function getSaveError(): string | null {
     const cleaned = draft.trim()
-    if (!cleaned) {
-      toast.error("text cannot be empty")
+    if (!cleaned) return "text cannot be empty"
+    if (overLimit) return `text too long (${charCount}/${MAX_CHARS})`
+    if (isCodeMode && !selectedLang) return "select a language for code mode"
+    return null
+  }
+
+  function handleSave() {
+    const error = getSaveError()
+    if (error) {
+      toast.error(error)
       return
     }
-    if (overLimit) {
-      toast.error(`text too long (${charCount}/${MAX_CHARS})`)
-      return
-    }
-    if (isCodeMode && !selectedLang) {
-      toast.error("select a language for code mode")
-      return
-    }
-    onSave(cleaned, isCodeMode ? selectedLang : undefined)
+    onSave(draft.trim(), isCodeMode ? selectedLang : undefined)
     setOpen(false)
   }
 
+  function pickRandomChapterContent(lang: string): string | null {
+    const entry = codeManifest[lang]
+    if (!entry) return null
+    const chapter = randomPick(entry.chapters)
+    return getCodeContent(lang, chapter) ?? null
+  }
+
   function resetToDefault() {
-    if (isCodeMode && selectedLang && codeManifest[selectedLang]) {
-      const chapters = codeManifest[selectedLang].chapters
-      const chapter = chapters[Math.floor(Math.random() * chapters.length)]
-      const content = getCodeContent(selectedLang, chapter)
-      if (content) {
-        setDraft(content)
-        return
-      }
-    }
-    setDraft(DEFAULT_CUSTOM_TEXT)
+    const fromCode =
+      isCodeMode && selectedLang ? pickRandomChapterContent(selectedLang) : null
+    setDraft(fromCode ?? DEFAULT_CUSTOM_TEXT)
   }
 
   function clearAll() {
     setDraft("")
   }
 
+  const codeExtensions = Object.keys(EXT_TO_LANG)
+    .map((e) => `.${e}`)
+    .join(" ")
+  const uploadHint = isCodeMode ? codeExtensions : "or drop one onto the editor"
+  const uploadAccept = isCodeMode
+    ? codeExtensions.replace(/ /g, ",")
+    : ".txt,text/plain"
+  const resetLabel =
+    selectedLang && isCodeMode ? "Load random sample" : "Load sample pangram"
+  const uploadLabel = isCodeMode ? "Upload code file" : "Upload .txt"
+  const dialogTitle = isCodeMode ? "Custom Code" : "Custom Text"
+  const dialogDescription = isCodeMode
+    ? "Edit code below. Line breaks create new lines with indentation."
+    : "Paste anything. Words split on whitespace. Test ends on the last word."
+  const lineBreakTip = isCodeMode
+    ? "Line breaks create new code lines with indentation."
+    : "Line breaks are collapsed into spaces."
+  const saveDisabled =
+    overLimit || draft.trim().length === 0 || (isCodeMode && !selectedLang)
+  const editorSection =
+    selectedLang && isCodeMode ? renderMonacoEditor() : renderPlainTextarea()
+
+  function renderMonacoEditor() {
+    return (
+      <div className="h-[220px] overflow-hidden rounded-md border border-border md:h-auto md:min-h-0 md:flex-1">
+        <MonacoEditor
+          height="100%"
+          language={monacoLang}
+          theme="vesper"
+          value={draft}
+          onChange={(v) => setDraft(v ?? "")}
+          beforeMount={(monaco) => {
+            monaco.editor.defineTheme("vesper", VESPER_THEME)
+            const env = (monaco as { env?: { clipboard?: unknown } }).env
+            if (env) {
+              env.clipboard = {
+                readText: async () => "",
+                writeText: async () => {},
+              }
+            }
+          }}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 13,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            tabSize: 2,
+            wordWrap: "on",
+            overviewRulerLanes: 0,
+            scrollbar: {
+              verticalScrollbarSize: 4,
+              horizontalScrollbarSize: 4,
+            },
+            padding: { top: 10, bottom: 10 },
+            renderLineHighlight: "none",
+            folding: false,
+            contextmenu: false,
+          }}
+        />
+      </div>
+    )
+  }
+
+  function renderPlainTextarea() {
+    return (
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+        className="relative h-[200px] md:h-auto md:min-h-0 md:flex-1"
+      >
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          spellCheck={false}
+          placeholder="Paste your text here…"
+          className={cn(
+            "block h-full w-full resize-none rounded-md border border-border bg-background/40 p-3 font-mono text-sm leading-relaxed text-foreground",
+            "placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none",
+            overLimit && "border-destructive focus-visible:ring-destructive/40"
+          )}
+        />
+        <span
+          className={cn(
+            "pointer-events-none absolute right-3 bottom-2 font-mono text-[10px] tracking-widest uppercase",
+            overLimit ? "text-destructive" : "text-muted-foreground/50"
+          )}
+        >
+          {charCount}/{MAX_CHARS}
+        </span>
+      </div>
+    )
+  }
+
   const dirty = draft !== value
-  const selectedLangEntry = selectedLang
-    ? codeManifest[selectedLang]
-    : undefined
   const monacoLang = selectedLang ? toMonacoLang(selectedLang) : "plaintext"
 
   return (
@@ -775,12 +990,10 @@ export function CustomTextDialog({
           <div className="flex flex-col gap-3 border-b border-border p-5 md:min-h-0 md:overflow-hidden md:border-r md:border-b-0">
             <DialogHeader className="gap-1">
               <DialogTitle className="font-(family-name:--font-doto) text-2xl font-bold tracking-wide">
-                {isCodeMode ? "Custom Code" : "Custom Text"}
+                {dialogTitle}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                {isCodeMode
-                  ? "Edit code below. Line breaks create new lines with indentation."
-                  : "Paste anything. Words split on whitespace. Test ends on the last word."}
+                {dialogDescription}
               </DialogDescription>
             </DialogHeader>
 
@@ -793,87 +1006,15 @@ export function CustomTextDialog({
               <IconUpload size={16} stroke={1.5} className="shrink-0" />
               <span className="flex flex-col leading-tight">
                 <span className="font-medium text-foreground">
-                  {isCodeMode ? "Upload code file" : "Upload .txt"}
+                  {uploadLabel}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60">
-                  {isCodeMode
-                    ? Object.keys(EXT_TO_LANG)
-                        .map((e) => `.${e}`)
-                        .join(" ")
-                    : "or drop one onto the editor"}
+                  {uploadHint}
                 </span>
               </span>
             </button>
 
-            {isCodeMode && selectedLang ? (
-              /* Monaco editor — explicit height on mobile, flex-1 on desktop */
-              <div className="h-[220px] overflow-hidden rounded-md border border-border md:h-auto md:min-h-0 md:flex-1">
-                <MonacoEditor
-                  height="100%"
-                  language={monacoLang}
-                  theme="vesper"
-                  value={draft}
-                  onChange={(v) => setDraft(v ?? "")}
-                  beforeMount={(monaco) => {
-                    monaco.editor.defineTheme("vesper", VESPER_THEME)
-                    const env = (monaco as { env?: { clipboard?: unknown } })
-                      .env
-                    if (env) {
-                      env.clipboard = {
-                        readText: async () => "",
-                        writeText: async () => {},
-                      }
-                    }
-                  }}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 13,
-                    lineNumbers: "on",
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    tabSize: 2,
-                    wordWrap: "on",
-                    overviewRulerLanes: 0,
-                    scrollbar: {
-                      verticalScrollbarSize: 4,
-                      horizontalScrollbarSize: 4,
-                    },
-                    padding: { top: 10, bottom: 10 },
-                    renderLineHighlight: "none",
-                    folding: false,
-                    contextmenu: false,
-                  }}
-                />
-              </div>
-            ) : (
-              /* Plain textarea — explicit height on mobile, flex-1 on desktop */
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                className="relative h-[200px] md:h-auto md:min-h-0 md:flex-1"
-              >
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  spellCheck={false}
-                  placeholder="Paste your text here…"
-                  className={cn(
-                    "block h-full w-full resize-none rounded-md border border-border bg-background/40 p-3 font-mono text-sm leading-relaxed text-foreground",
-                    "placeholder:text-muted-foreground/40 focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none",
-                    overLimit &&
-                      "border-destructive focus-visible:ring-destructive/40"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "pointer-events-none absolute right-3 bottom-2 font-mono text-[10px] tracking-widest uppercase",
-                    overLimit ? "text-destructive" : "text-muted-foreground/50"
-                  )}
-                >
-                  {charCount}/{MAX_CHARS}
-                </span>
-              </div>
-            )}
+            {editorSection}
 
             <div className="flex flex-wrap items-center gap-2 text-[10px] tracking-widest text-muted-foreground/60 uppercase">
               <span>
@@ -911,11 +1052,7 @@ export function CustomTextDialog({
                     {isCodeMode ? "Upload code file" : "Upload .txt"}
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
-                    {isCodeMode
-                      ? Object.keys(EXT_TO_LANG)
-                          .map((e) => `.${e}`)
-                          .join(" ")
-                      : "or drop one onto the editor"}
+                    {uploadHint}
                   </span>
                 </span>
               </button>
@@ -923,13 +1060,7 @@ export function CustomTextDialog({
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept={
-                  isCodeMode
-                    ? Object.keys(EXT_TO_LANG)
-                        .map((e) => `.${e}`)
-                        .join(",")
-                    : ".txt,text/plain"
-                }
+                accept={uploadAccept}
                 onChange={(e) => {
                   void handleFile(e.target.files?.[0])
                   e.target.value = ""
@@ -974,100 +1105,15 @@ export function CustomTextDialog({
                 </button>
               </div>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  disabled={!isCodeMode}
-                  onClick={() => {
-                    if (isCodeMode) {
-                      setLangPickerOpen((v) => !v)
-                      setLangSearch("")
-                    }
-                  }}
-                  className={cn(
-                    "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
-                    isCodeMode
-                      ? "cursor-pointer hover:bg-muted/50"
-                      : "cursor-not-allowed opacity-40"
-                  )}
-                >
-                  <span className="min-w-0 truncate text-muted-foreground">
-                    {selectedLangEntry
-                      ? selectedLangEntry.name
-                      : "Select language…"}
-                  </span>
-                  <CaretDownIcon
-                    className={cn(
-                      "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                      langPickerOpen && "rotate-180"
-                    )}
-                    weight="bold"
-                  />
-                </button>
-                <AnimatePresence initial={false}>
-                  {isCodeMode && langPickerOpen && (
-                    <motion.div
-                      key="lang-list"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
-                    >
-                      <div className="border-b border-border px-2 py-1.5">
-                        <input
-                          type="text"
-                          placeholder="Search language..."
-                          value={langSearch}
-                          onChange={(e) => setLangSearch(e.target.value)}
-                          className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
-                        />
-                      </div>
-                      <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
-                        {(() => {
-                          const q = langSearch.trim().toLowerCase()
-                          const filtered = q
-                            ? Object.values(codeManifest).filter(
-                                (l) =>
-                                  l.name.toLowerCase().includes(q) ||
-                                  l.code.toLowerCase().includes(q)
-                              )
-                            : Object.values(codeManifest)
-                          return filtered.length > 0 ? (
-                            filtered.map((lang) => (
-                              <button
-                                type="button"
-                                key={lang.code}
-                                onClick={() => {
-                                  setSelectedLang(lang.code)
-                                  localStorage.setItem(
-                                    DIALOG_CODE_LANG_KEY,
-                                    lang.code
-                                  )
-                                  setLangPickerOpen(false)
-                                  setLangSearch("")
-                                }}
-                                className={cn(
-                                  "flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                                  selectedLang === lang.code
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                              >
-                                {lang.name}
-                              </button>
-                            ))
-                          ) : (
-                            <p className="py-4 text-center text-xs text-muted-foreground">
-                              No languages found
-                            </p>
-                          )
-                        })()}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <CodeLanguagePicker
+                enabled={isCodeMode}
+                codeManifest={codeManifest}
+                selectedLang={selectedLang}
+                onSelect={(lang) => {
+                  setSelectedLang(lang)
+                  localStorage.setItem(DIALOG_CODE_LANG_KEY, lang)
+                }}
+              />
             </section>
 
             <div className="h-px bg-border" />
@@ -1082,9 +1128,7 @@ export function CustomTextDialog({
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <IconSparkles size={14} stroke={1.5} />
-                {isCodeMode && selectedLang
-                  ? "Load random sample"
-                  : "Load sample pangram"}
+                {resetLabel}
               </button>
               <button
                 type="button"
@@ -1114,9 +1158,7 @@ export function CustomTextDialog({
                   size={11}
                   className="mt-[1px] shrink-0 opacity-60"
                 />
-                {isCodeMode
-                  ? "Line breaks create new code lines with indentation."
-                  : "Line breaks are collapsed into spaces."}
+                {lineBreakTip}
               </p>
             </section>
 
@@ -1134,11 +1176,7 @@ export function CustomTextDialog({
                 <button
                   type="button"
                   onClick={handleSave}
-                  disabled={
-                    overLimit ||
-                    draft.trim().length === 0 ||
-                    (isCodeMode && !selectedLang)
-                  }
+                  disabled={saveDisabled}
                   className="flex w-full items-center justify-center gap-2 bg-primary px-4 py-2 text-sm transition-colors hover:text-foreground focus-visible:ring-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Save & Start

@@ -296,11 +296,16 @@ function SiteHeader() {
   const iconButtonClass =
     "group relative flex h-9 w-9 items-center justify-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground shadow-2xs backdrop-blur-md transition-all duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 
+  let headerOpacity = 1
+  if (dimHeader && !effectiveHeaderVisible) {
+    headerOpacity = 0.1
+  }
+
   return (
     <>
       <motion.header
         animate={{
-          opacity: dimHeader ? (effectiveHeaderVisible ? 1 : 0.1) : 1,
+          opacity: headerOpacity,
         }}
         transition={{ duration: 0.4, ease: "easeInOut" }}
         onMouseMove={handleHeaderMouseMove}

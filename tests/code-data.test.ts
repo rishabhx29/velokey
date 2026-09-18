@@ -8,7 +8,7 @@ import {
 
 describe("code data", () => {
   it("manifest has all 14 languages", () => {
-    expect(Object.keys(CODE_MANIFEST).length).toBe(14)
+    expect(Object.keys(CODE_MANIFEST)).toHaveLength(14)
   })
 
   it("manifest chapters are numbered without gaps per language", () => {

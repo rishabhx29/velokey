@@ -351,6 +351,75 @@ function RGBKeyboardKeys() {
 const KEYCAP_FONT =
   '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif'
 
+/** Glow color set derived from the animated --rgb-hue container variable. */
+function getGlowColors(glowOffset: number) {
+  const hue = `calc(var(--rgb-hue, 0) + ${glowOffset})`
+  return {
+    main: `hsl(${hue}, 100%, 65%)`,
+    dim: `hsl(${hue}, 100%, 30%)`,
+    under: `hsl(${hue}, 100%, 45%)`,
+  }
+}
+
+/** Outer keycap shell style — visible "walls" of the 3D key. */
+function getShellStyle(
+  active: boolean,
+  w: number,
+  glow: ReturnType<typeof getGlowColors>
+): React.CSSProperties {
+  return {
+    width: `${w}px`,
+    background: active
+      ? "linear-gradient(180deg, #1c1c22 0%, #18181e 40%, #121216 100%)"
+      : "linear-gradient(180deg, #30303a 0%, #26262e 30%, #1c1c22 70%, #16161a 100%)",
+    borderTop: `1px solid ${active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`,
+    borderLeft: `1px solid ${active ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)"}`,
+    borderRight: `1px solid ${active ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.4)"}`,
+    borderBottom: `1px solid ${active ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.6)"}`,
+    boxShadow: active
+      ? [
+          `inset 0 0 12px 1px ${glow.dim}`, // Inner RGB glow on press
+          `0 0 18px 3px ${glow.under}`, // Outer RGB burst
+          "0 1px 2px rgba(0,0,0,0.6)", // Tight shadow
+        ].join(", ")
+      : [
+          `0 8px 12px -4px ${glow.dim}`, // RGB underglow
+          "0 4px 0 0 #0e0e12", // Visible front face / bottom edge
+          "0 5px 3px 0 rgba(0,0,0,0.5)", // Drop shadow under front face
+          "inset 0 1px 0 rgba(255,255,255,0.06)", // Top edge shine
+        ].join(", "),
+  }
+}
+
+/** Inner top-surface ("dish") style. */
+function getDishStyle(
+  active: boolean,
+  innerW: number,
+  glow: ReturnType<typeof getGlowColors>
+): React.CSSProperties {
+  return {
+    width: `${innerW}px`,
+    marginTop: "2px",
+    background: active
+      ? "linear-gradient(180deg, #1a1a22 0%, #222230 100%)"
+      : "linear-gradient(180deg, #2c2c36 0%, #24242e 50%, #282834 100%)",
+    borderTop: `1px solid ${active ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.1)"}`,
+    borderLeft: "1px solid rgba(255,255,255,0.04)",
+    borderRight: "1px solid rgba(0,0,0,0.15)",
+    borderBottom: "1px solid rgba(0,0,0,0.2)",
+    boxShadow: active
+      ? `inset 0 2px 6px rgba(0,0,0,0.4), inset 0 0 8px 1px ${glow.dim}`
+      : "inset 0 1px 3px rgba(0,0,0,0.15), inset 0 -1px 0 rgba(255,255,255,0.03)",
+    color: glow.main,
+    fontFamily: KEYCAP_FONT,
+    textShadow: active
+      ? `0 0 8px ${glow.main}, 0 0 16px ${glow.main}`
+      : `0 0 5px ${glow.dim}`,
+    WebkitTextSizeAdjust: "100%",
+    textSizeAdjust: "100%",
+  }
+}
+
 interface RGBKeyProps {
   w?: number
   children?: ReactNode
@@ -395,11 +464,10 @@ function K({
   }
 
   // CSS calc references the animated --rgb-hue variable on the container
-  const hue = `calc(var(--rgb-hue, 0) + ${glowOffset})`
-  const glowMain = `hsl(${hue}, 100%, 65%)`
-  const glowDim = `hsl(${hue}, 100%, 30%)`
-  const glowUnder = `hsl(${hue}, 100%, 45%)`
+  const glow = getGlowColors(glowOffset)
   const innerW = w - 10
+  const shellStyle = getShellStyle(active, w, glow)
+  const dishStyle = getDishStyle(active, innerW, glow)
 
   return (
     <button
@@ -420,28 +488,7 @@ function K({
           active && "h-[46px]"
         )}
         style={{
-          width: `${w}px`,
-          // Multi-layer gradient for realistic side walls
-          background: active
-            ? "linear-gradient(180deg, #1c1c22 0%, #18181e 40%, #121216 100%)"
-            : "linear-gradient(180deg, #30303a 0%, #26262e 30%, #1c1c22 70%, #16161a 100%)",
-          // Complex border for edge definition
-          borderTop: `1px solid ${active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`,
-          borderLeft: `1px solid ${active ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)"}`,
-          borderRight: `1px solid ${active ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.4)"}`,
-          borderBottom: `1px solid ${active ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.6)"}`,
-          boxShadow: active
-            ? [
-                `inset 0 0 12px 1px ${glowDim}`, // Inner RGB glow on press
-                `0 0 18px 3px ${glowUnder}`, // Outer RGB burst
-                "0 1px 2px rgba(0,0,0,0.6)", // Tight shadow
-              ].join(", ")
-            : [
-                `0 8px 12px -4px ${glowDim}`, // RGB underglow
-                "0 4px 0 0 #0e0e12", // Visible front face / bottom edge
-                "0 5px 3px 0 rgba(0,0,0,0.5)", // Drop shadow under front face
-                "inset 0 1px 0 rgba(255,255,255,0.06)", // Top edge shine
-              ].join(", "),
+          ...shellStyle,
         }}
       >
         {/* Top highlight line — simulates light catching the top edge */}
@@ -449,7 +496,7 @@ function K({
           className="pointer-events-none absolute top-0 right-[3px] left-[3px] z-20 h-px rounded-full"
           style={{
             background: active
-              ? `linear-gradient(90deg, transparent, ${glowUnder}, transparent)`
+              ? `linear-gradient(90deg, transparent, ${glow.under}, transparent)`
               : "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.12) 70%, transparent 90%)",
           }}
         />
@@ -489,7 +536,7 @@ function K({
           className="pointer-events-none absolute inset-0 z-10 rounded-[5px] opacity-0 transition-opacity duration-75"
           style={{
             opacity: active ? 1 : 0,
-            background: `radial-gradient(ellipse at center 30%, ${glowDim} 0%, transparent 65%)`,
+            background: `radial-gradient(ellipse at center 30%, ${glow.dim} 0%, transparent 65%)`,
             mixBlendMode: "screen",
           }}
         />
@@ -502,27 +549,7 @@ function K({
             className
           )}
           style={{
-            width: `${innerW}px`,
-            marginTop: "2px",
-            // Slightly concave top surface
-            background: active
-              ? "linear-gradient(180deg, #1a1a22 0%, #222230 100%)"
-              : "linear-gradient(180deg, #2c2c36 0%, #24242e 50%, #282834 100%)",
-            // Inner border for depth separation between top and sides
-            borderTop: `1px solid ${active ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.1)"}`,
-            borderLeft: "1px solid rgba(255,255,255,0.04)",
-            borderRight: "1px solid rgba(0,0,0,0.15)",
-            borderBottom: "1px solid rgba(0,0,0,0.2)",
-            boxShadow: active
-              ? `inset 0 2px 6px rgba(0,0,0,0.4), inset 0 0 8px 1px ${glowDim}`
-              : "inset 0 1px 3px rgba(0,0,0,0.15), inset 0 -1px 0 rgba(255,255,255,0.03)",
-            color: glowMain,
-            fontFamily: KEYCAP_FONT,
-            textShadow: active
-              ? `0 0 8px ${glowMain}, 0 0 16px ${glowMain}`
-              : `0 0 5px ${glowDim}`,
-            WebkitTextSizeAdjust: "100%",
-            textSizeAdjust: "100%",
+            ...dishStyle,
           }}
         >
           {children}
@@ -536,7 +563,7 @@ function K({
           )}
           style={{
             background: active
-              ? `linear-gradient(90deg, transparent, ${glowDim})`
+              ? `linear-gradient(90deg, transparent, ${glow.dim})`
               : "linear-gradient(90deg, transparent, rgba(255,255,255,0.06))",
           }}
         />
@@ -547,7 +574,7 @@ function K({
           )}
           style={{
             background: active
-              ? `linear-gradient(270deg, transparent, ${glowDim})`
+              ? `linear-gradient(270deg, transparent, ${glow.dim})`
               : "linear-gradient(270deg, transparent, rgba(255,255,255,0.06))",
           }}
         />

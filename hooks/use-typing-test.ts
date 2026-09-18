@@ -8,6 +8,7 @@ import {
   generateFocusWords,
   type Difficulty,
 } from "@/lib/words"
+import { randomPick } from "@/lib/secure-random"
 import { getWorstKeys } from "@/lib/mistakes"
 import { getQuote, type QuoteLength } from "@/lib/quotes"
 import {
@@ -25,8 +26,6 @@ import type { ResultStats, WpmSnapshot } from "@/components/results-screen"
 import { CODE_MANIFEST, getCodeContent } from "@/lib/code"
 import {
   type TestMode,
-  type TimeOption,
-  type WordOption,
   TEST_MODE_STORAGE_KEY,
   TIME_OPTION_STORAGE_KEY,
   WORD_OPTION_STORAGE_KEY,
@@ -59,11 +58,260 @@ import {
   parseCodeContent,
 } from "@/lib/text-parsing"
 
+/** Human-readable summary of the active mode's configuration. */
+function describeModeDetail(
+  mode: TestMode,
+  opts: { timeOption: number; wordOption: number; quoteLength: string }
+): string {
+  if (mode === "time") return String(opts.timeOption)
+  if (mode === "words") return String(opts.wordOption)
+  if (mode === "quote") return opts.quoteLength
+  if (mode === "custom") return "custom"
+  return ""
+}
+
+/** Target word count per test mode (timed tests over-generate). */
+function wordCountForMode(mode: TestMode, wordsOption: number): number {
+  if (mode === "time") return 200
+  if (mode === "words" || mode === "brainrot" || mode === "focus") {
+    return wordsOption
+  }
+  return 100
+}
+
+/** Which code-mode parts are missing, for the "Select X and Y" prompt. */
+function describeMissingCodeParts(
+  hasLang: boolean,
+  hasChapter: boolean
+): string[] {
+  if (!hasLang && !hasChapter) return ["language", "and", "chapter"]
+  if (!hasLang) return ["language"]
+  return ["chapter"]
+}
+
+/** Result of resolving a custom-mode word set. */
+interface CustomWordsResult {
+  words: string[]
+  codeLines: number[]
+  codeIndents: number[]
+}
+
+/**
+ * Resolve the word set for the "custom" mode. When a code language is set the
+ * custom text is parsed as code (lines + indents); otherwise it is split into
+ * plain words. Falls back to the default custom text when empty.
+ */
+function resolveCustomWords(
+  customText: string,
+  codeLang: string
+): CustomWordsResult {
+  const fallbackWords = customTextToWords(DEFAULT_CUSTOM_TEXT)
+
+  if (codeLang) {
+    const parsed = parseCodeContent(customText)
+    const hasWords = parsed.words.length > 0
+    return {
+      words: hasWords ? parsed.words : fallbackWords,
+      codeLines: hasWords ? parsed.lineLengths : [],
+      codeIndents: hasWords ? parsed.lineIndents : [],
+    }
+  }
+
+  const customWords = customTextToWords(customText)
+  return {
+    words: customWords.length > 0 ? customWords : fallbackWords,
+    codeLines: [],
+    codeIndents: [],
+  }
+}
+
+/**
+ * Resolve the word set for "code" mode. Missing selection or load failures
+ * produce friendly placeholder words so the test area is never blank.
+ */
+function resolveCodeWords(
+  codeLang: string,
+  codeChapter: string
+): CustomWordsResult {
+  const prefix = getCommentPrefix(codeLang)
+
+  if (!codeLang || !codeChapter) {
+    const missing = describeMissingCodeParts(
+      Boolean(codeLang),
+      Boolean(codeChapter)
+    )
+    const fallback = [
+      prefix,
+      "Select",
+      "a",
+      ...missing,
+      "from",
+      "the",
+      "top",
+      "menu",
+      "to",
+      "start",
+    ]
+    return { words: fallback, codeLines: [fallback.length], codeIndents: [0] }
+  }
+
+  const content = getCodeContent(codeLang, codeChapter)
+  if (!content) {
+    return {
+      words: [prefix, "error", "loading", "file"],
+      codeLines: [4],
+      codeIndents: [0],
+    }
+  }
+
+  const parsed = parseCodeContent(content)
+  const hasWords = parsed.words.length > 0
+  return {
+    words: hasWords ? parsed.words : [prefix, "empty", "file"],
+    codeLines: hasWords ? parsed.lineLengths : [3],
+    codeIndents: hasWords ? parsed.lineIndents : [0],
+  }
+}
+
+/**
+ * Load (or resolve) the word set for a freshly reset test. Async because
+ * word generation can fetch language pools. Returns the words plus optional
+ * code-mode line metadata.
+ */
+async function loadTestWords(opts: {
+  m: TestMode
+  ql: QuoteLength
+  ct: string
+  ccl: string
+  cl: string
+  cc: string
+  wc: number
+  buildWords: (
+    lang: string,
+    count: number,
+    o: {
+      punctuation: boolean
+      numbers: boolean
+      difficulty: Difficulty | undefined
+      showDiacritics?: boolean
+    }
+  ) => Promise<string[]>
+  lang: string
+  p: boolean
+  n: boolean
+  d: Difficulty | undefined
+  sd: boolean | undefined
+}): Promise<CustomWordsResult & { author: string | null }> {
+  const { m } = opts
+  if (m === "quote") {
+    const { words, author } = getQuote(opts.ql)
+    return { words, codeLines: [], codeIndents: [], author }
+  }
+  if (m === "custom") {
+    const resolved = resolveCustomWords(opts.ct, opts.ccl)
+    return { ...resolved, author: null }
+  }
+  if (m === "brainrot") {
+    return {
+      words: generateWordsFromPool(BRAINROT_WORDS, opts.wc, {
+        punctuation: false,
+        numbers: false,
+      }),
+      codeLines: [],
+      codeIndents: [],
+      author: null,
+    }
+  }
+  if (m === "focus") {
+    const worst = getWorstKeys(6)
+    const targetKeys =
+      worst.length > 0 ? worst : ["e", "t", "a", "o", "i", "n", "s", "r"]
+    const baseWords = await opts.buildWords(opts.lang, opts.wc * 3, {
+      punctuation: opts.p,
+      numbers: opts.n,
+      difficulty: opts.d,
+      showDiacritics: opts.sd,
+    })
+    return {
+      words: generateFocusWords(baseWords, targetKeys, opts.wc),
+      codeLines: [],
+      codeIndents: [],
+      author: null,
+    }
+  }
+  if (m === "code") {
+    const resolved = resolveCodeWords(opts.cl, opts.cc)
+    return { ...resolved, author: null }
+  }
+  return {
+    words: await opts.buildWords(opts.lang, opts.wc, {
+      punctuation: opts.p,
+      numbers: opts.n,
+      difficulty: opts.d,
+      showDiacritics: opts.sd,
+    }),
+    codeLines: [],
+    codeIndents: [],
+    author: null,
+  }
+}
+
+/** Everything persisted across sessions, as one snapshot of localStorage. */
+interface StoredTestOptions {
+  mode: TestMode | undefined
+  timeOption: number | undefined
+  wordOption: number | undefined
+  quoteLength: QuoteLength | undefined
+  punctuation: boolean | undefined
+  numbers: boolean | undefined
+  difficulty: Difficulty | undefined
+  customText: string | undefined
+  customCodeLanguage: string | undefined
+  codeLanguage: string | undefined
+  codeChapter: string | undefined
+}
+
+/** Read all persisted test options from localStorage in one place. */
+function readStoredTestOptions(): StoredTestOptions {
+  return {
+    mode: readStoredTestMode(),
+    timeOption: readStoredTimeOption(),
+    wordOption: readStoredWordOption(),
+    quoteLength: readStoredQuoteLength(),
+    punctuation: readStoredBool(PUNCTUATION_STORAGE_KEY),
+    numbers: readStoredBool(NUMBERS_STORAGE_KEY),
+    difficulty: readStoredDifficulty(),
+    customText: readStoredCustomText(),
+    customCodeLanguage: readStoredCustomCodeLanguage(),
+    codeLanguage: readStoredCodeLanguage(),
+    codeChapter: readStoredCodeChapter(),
+  }
+}
+
+/** Alt+Backspace/Delete or Ctrl+Backspace — delete the whole word. */
+function isWordDeleteCombo(e: {
+  altKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+  key: string
+}): boolean {
+  const isAltDelete =
+    e.altKey &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.shiftKey &&
+    (e.key === "Backspace" || e.key === "Delete")
+  const isCtrlBackspace =
+    e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && e.key === "Backspace"
+  return isAltDelete || isCtrlBackspace
+}
+
 type ResetOverrides = Partial<{
   mode: TestMode
   quoteLength: QuoteLength
-  wordOption: WordOption
-  timeOption: TimeOption
+  wordOption: number
+  timeOption: number
   punctuation: boolean
   numbers: boolean
   difficulty: Difficulty | undefined
@@ -124,8 +372,8 @@ export function useTypingTest({
   }, [pauseTypingInputRefocus])
 
   const [mode, setMode] = useState<TestMode>("time")
-  const [timeOption, setTimeOption] = useState<TimeOption>(30)
-  const [wordOption, setWordOption] = useState<WordOption>(25)
+  const [timeOption, setTimeOption] = useState<number>(30)
+  const [wordOption, setWordOption] = useState<number>(25)
   const [quoteLength, setQuoteLength] = useState<QuoteLength>("medium")
   const [quoteAuthor, setQuoteAuthor] = useState<string | null>(null)
   const [punctuation, setPunctuation] = useState(false)
@@ -161,7 +409,6 @@ export function useTypingTest({
   const [isActivelyTyping, setIsActivelyTyping] = useState(false)
   const [screenFade, setScreenFade] = useState(1)
   const [capsLock, setCapsLock] = useState(false)
-  const [codeLoading] = useState(false)
   const [frozenStats, setFrozenStats] = useState<ResultStats | null>(null)
 
   const correctCharsRef = useRef(0)
@@ -286,16 +533,11 @@ export function useTypingTest({
         elapsedSeconds: Math.round(elapsed),
         correctedErrors: correctedErrorsRef.current,
         mode,
-        modeDetail:
-          mode === "time"
-            ? String(timeOption)
-            : mode === "words"
-              ? String(wordOption)
-              : mode === "quote"
-                ? quoteLength
-                : mode === "custom"
-                  ? "custom"
-                  : "",
+        modeDetail: describeModeDetail(mode, {
+          timeOption,
+          wordOption,
+          quoteLength,
+        }),
         language,
         wpmHistory,
         wordInputs: snapshotWordInputs,
@@ -404,120 +646,38 @@ export function useTypingTest({
           : customCodeLanguage
       const cl = overrides.codeLanguage ?? codeLanguage
       const cc = overrides.codeChapter ?? codeChapter
-      const wc =
-        m === "time"
-          ? 200
-          : m === "words" || m === "brainrot" || m === "focus"
-            ? wo
-            : 100
+      const wc = wordCountForMode(m, wo)
 
       setQuoteAuthor(null)
       if (raceWords && raceWords.length > 0) {
         setWords(raceWords)
         setCodeLines([])
         setCodeIndents([])
-      } else if (m === "quote") {
-        const { words: newWords, author } = getQuote(ql)
-        setWords(newWords)
+      } else if (practiceWordsRef.current) {
+        // Practice mode overrides normal word generation.
+        setWords(practiceWordsRef.current)
         setCodeLines([])
         setCodeIndents([])
-        setQuoteAuthor(author)
-      } else if (m === "custom") {
-        if (ccl) {
-          const parsed = parseCodeContent(ct)
-          setWords(
-            parsed.words.length > 0
-              ? parsed.words
-              : customTextToWords(DEFAULT_CUSTOM_TEXT)
-          )
-          setCodeLines(parsed.words.length > 0 ? parsed.lineLengths : [])
-          setCodeIndents(parsed.words.length > 0 ? parsed.lineIndents : [])
-        } else {
-          const customWords = customTextToWords(ct)
-          setWords(
-            customWords.length > 0
-              ? customWords
-              : customTextToWords(DEFAULT_CUSTOM_TEXT)
-          )
-          setCodeLines([])
-          setCodeIndents([])
-        }
-      } else if (m === "brainrot") {
-        const newWords = generateWordsFromPool(BRAINROT_WORDS, wc, {
-          punctuation: false,
-          numbers: false,
-        })
-        setWords(newWords)
-        setCodeLines([])
-        setCodeIndents([])
-      } else if (m === "focus") {
-        const worst = getWorstKeys(6)
-        const targetKeys =
-          worst.length > 0 ? worst : ["e", "t", "a", "o", "i", "n", "s", "r"]
-        const baseWords = await buildWords(lang, wc * 3, {
-          punctuation: p,
-          numbers: n,
-          difficulty: d,
-          showDiacritics: sd,
-        })
-        const focusWords = generateFocusWords(baseWords, targetKeys, wc)
-        setWords(focusWords)
-        setCodeLines([])
-        setCodeIndents([])
-      } else if (m === "code") {
-        const c = getCommentPrefix(cl)
-        if (cl && cc) {
-          const content = getCodeContent(cl, cc)
-          if (content) {
-            const parsed = parseCodeContent(content)
-            setWords(
-              parsed.words.length > 0 ? parsed.words : [c, "empty", "file"]
-            )
-            setCodeLines(parsed.words.length > 0 ? parsed.lineLengths : [3])
-            setCodeIndents(parsed.words.length > 0 ? parsed.lineIndents : [0])
-          } else {
-            setWords([c, "error", "loading", "file"])
-            setCodeLines([4])
-            setCodeIndents([0])
-          }
-        } else {
-          const missing =
-            !cl && !cc
-              ? ["language", "and", "chapter"]
-              : !cl
-                ? ["language"]
-                : ["chapter"]
-          const fallback = [
-            c,
-            "Select",
-            "a",
-            ...missing,
-            "from",
-            "the",
-            "top",
-            "menu",
-            "to",
-            "start",
-          ]
-          setWords(fallback)
-          setCodeLines([fallback.length])
-          setCodeIndents([0])
-        }
       } else {
-        // Use practice word set if active (practice mode overrides normal word generation)
-        if (practiceWordsRef.current) {
-          setWords(practiceWordsRef.current)
-        } else {
-          const newWords = await buildWords(lang, wc, {
-            punctuation: p,
-            numbers: n,
-            difficulty: d,
-            showDiacritics: sd,
-          })
-          setWords(newWords)
-        }
-        setCodeLines([])
-        setCodeIndents([])
+        const loaded = await loadTestWords({
+          m,
+          ql,
+          ct,
+          ccl,
+          cl,
+          cc,
+          wc,
+          buildWords,
+          lang,
+          p,
+          n,
+          d,
+          sd,
+        })
+        setWords(loaded.words)
+        setCodeLines(loaded.codeLines)
+        setCodeIndents(loaded.codeIndents)
+        if (loaded.author) setQuoteAuthor(loaded.author)
       }
       setTyped("")
       setWordIndex(0)
@@ -609,149 +769,80 @@ export function useTypingTest({
       return
     }
 
-    const storedMode = readStoredTestMode()
-    const storedTime = readStoredTimeOption()
-    const storedWordOption = readStoredWordOption()
-    const storedQuoteLength = readStoredQuoteLength()
-    const storedPunctuation = readStoredBool(PUNCTUATION_STORAGE_KEY)
-    const storedNumbers = readStoredBool(NUMBERS_STORAGE_KEY)
-    const storedDifficulty = readStoredDifficulty()
-    const storedCustomText = readStoredCustomText()
-    const storedCodeLang = readStoredCodeLanguage()
-    const storedCodeChap = readStoredCodeChapter()
+    const stored = readStoredTestOptions()
 
-    const m = storedMode ?? mode
-    const to = storedTime ?? timeOption
-    const wo = storedWordOption ?? wordOption
-    const ql = storedQuoteLength ?? quoteLength
-    const p = storedPunctuation ?? punctuation
-    const n = storedNumbers ?? numbers
-    const d = storedDifficulty !== undefined ? storedDifficulty : difficulty
+    const m = stored.mode ?? mode
+    const to = stored.timeOption ?? timeOption
+    const wo = stored.wordOption ?? wordOption
+    const ql = stored.quoteLength ?? quoteLength
+    const p = stored.punctuation ?? punctuation
+    const n = stored.numbers ?? numbers
+    const d = stored.difficulty !== undefined ? stored.difficulty : difficulty
     const lang = language
 
-    let activeCodeLang = codeLanguage
-    let activeCodeChap = codeChapter
-    if (storedCodeLang) {
-      activeCodeLang = storedCodeLang
-      setCodeLanguage(storedCodeLang)
-    } else if (m === "code") {
-      activeCodeLang = "javascript"
-      setCodeLanguage("javascript")
-    }
-    if (storedCodeChap) {
-      activeCodeChap = storedCodeChap
-      setCodeChapter(storedCodeChap)
-    } else if (m === "code") {
-      activeCodeChap =
-        CODE_MANIFEST["javascript"]?.chapters[0] ?? "00_variables"
-      setCodeChapter(activeCodeChap)
+    /** Restore persisted selections into state, resolving code-mode defaults. */
+    const applyStoredSelections = () => {
+      // Code mode: fall back to stored selections, or defaults when the
+      // stored mode is "code" but nothing was saved yet.
+      let activeCodeLang = codeLanguage
+      let activeCodeChap = codeChapter
+      if (stored.codeLanguage) {
+        activeCodeLang = stored.codeLanguage
+        setCodeLanguage(stored.codeLanguage)
+      } else if (m === "code") {
+        activeCodeLang = "javascript"
+        setCodeLanguage("javascript")
+      }
+      if (stored.codeChapter) {
+        activeCodeChap = stored.codeChapter
+        setCodeChapter(stored.codeChapter)
+      } else if (m === "code") {
+        activeCodeChap =
+          CODE_MANIFEST["javascript"]?.chapters[0] ?? "00_variables"
+        setCodeChapter(activeCodeChap)
+      }
+
+      if (stored.mode !== undefined) setMode(stored.mode)
+      if (stored.timeOption !== undefined) setTimeOption(stored.timeOption)
+      if (stored.wordOption !== undefined) setWordOption(stored.wordOption)
+      if (stored.quoteLength !== undefined) setQuoteLength(stored.quoteLength)
+      if (stored.punctuation !== undefined) setPunctuation(stored.punctuation)
+      if (stored.numbers !== undefined) setNumbers(stored.numbers)
+      if (stored.difficulty !== undefined) setDifficulty(stored.difficulty)
+      if (stored.customText !== undefined) setCustomText(stored.customText)
+      if (stored.customCodeLanguage)
+        setCustomCodeLanguage(stored.customCodeLanguage)
+      return { activeCodeLang, activeCodeChap }
     }
 
-    if (storedMode !== undefined) setMode(storedMode)
-    if (storedTime !== undefined) setTimeOption(storedTime)
-    if (storedWordOption !== undefined) setWordOption(storedWordOption)
-    if (storedQuoteLength !== undefined) setQuoteLength(storedQuoteLength)
-    if (storedPunctuation !== undefined) setPunctuation(storedPunctuation)
-    if (storedNumbers !== undefined) setNumbers(storedNumbers)
-    if (storedDifficulty !== undefined) setDifficulty(storedDifficulty)
-    if (storedCustomText !== undefined) setCustomText(storedCustomText)
-    const storedCustomCodeLang = readStoredCustomCodeLanguage()
-    if (storedCustomCodeLang) setCustomCodeLanguage(storedCustomCodeLang)
+    const { activeCodeLang, activeCodeChap } = applyStoredSelections()
 
-    const ct = storedCustomText ?? customText
-    const activeCCL = storedCustomCodeLang ?? customCodeLanguage
-    const wc =
-      m === "time"
-        ? 200
-        : m === "words" || m === "brainrot" || m === "focus"
-          ? wo
-          : 100
-    if (m === "quote") {
-      const { words: initWords, author } = getQuote(ql)
-      setWords(initWords)
-      setQuoteAuthor(author)
-    } else if (m === "custom") {
-      if (activeCCL) {
-        const parsed = parseCodeContent(ct)
-        setWords(
-          parsed.words.length > 0
-            ? parsed.words
-            : customTextToWords(DEFAULT_CUSTOM_TEXT)
-        )
-        setCodeLines(parsed.words.length > 0 ? parsed.lineLengths : [])
-        setCodeIndents(parsed.words.length > 0 ? parsed.lineIndents : [])
-      } else {
-        const customWords = customTextToWords(ct)
-        setWords(
-          customWords.length > 0
-            ? customWords
-            : customTextToWords(DEFAULT_CUSTOM_TEXT)
-        )
-      }
-    } else if (m === "brainrot") {
-      const newWords = generateWordsFromPool(BRAINROT_WORDS, wc, {
-        punctuation: false,
-        numbers: false,
-      })
-      setWords(newWords)
-    } else if (m === "focus") {
-      const worst = getWorstKeys(6)
-      const targetKeys =
-        worst.length > 0 ? worst : ["e", "t", "a", "o", "i", "n", "s", "r"]
-      buildWords(language, wc * 3, {
-        punctuation: false,
-        numbers: false,
-        difficulty,
-      }).then((baseWords) => {
-        setWords(generateFocusWords(baseWords, targetKeys, wc))
-      })
-    } else if (m === "code") {
-      const c = getCommentPrefix(activeCodeLang)
-      if (activeCodeLang && activeCodeChap) {
-        const content = getCodeContent(activeCodeLang, activeCodeChap)
-        if (content) {
-          const parsed = parseCodeContent(content)
-          setWords(
-            parsed.words.length > 0 ? parsed.words : [c, "empty", "file"]
-          )
-          setCodeLines(parsed.words.length > 0 ? parsed.lineLengths : [3])
-          setCodeIndents(parsed.words.length > 0 ? parsed.lineIndents : [0])
-        } else {
-          setWords([c, "error", "loading", "file"])
-          setCodeLines([4])
-          setCodeIndents([0])
-        }
-      } else {
-        const missing =
-          !activeCodeLang && !activeCodeChap
-            ? ["language", "and", "chapter"]
-            : !activeCodeLang
-              ? ["language"]
-              : ["chapter"]
-        const fallback = [
-          c,
-          "Select",
-          "a",
-          ...missing,
-          "from",
-          "the",
-          "top",
-          "menu",
-          "to",
-          "start",
-        ]
-        setWords(fallback)
-        setCodeLines([fallback.length])
-        setCodeIndents([0])
-      }
-    } else {
-      buildWords(lang, wc, {
-        punctuation: p,
-        numbers: n,
-        difficulty: d,
-        showDiacritics,
-      }).then((w) => setWords(w))
-    }
+    const ct = stored.customText ?? customText
+    const activeCCL = stored.customCodeLanguage ?? customCodeLanguage
+    const wc = wordCountForMode(m, wo)
+    const loaded = loadTestWords({
+      m,
+      ql,
+      ct,
+      ccl: activeCCL,
+      cl: activeCodeLang,
+      cc: activeCodeChap,
+      wc,
+      buildWords,
+      lang,
+      p,
+      n,
+      d,
+      sd: showDiacritics,
+    }).then((result) => {
+      setWords(result.words)
+      setCodeLines(result.codeLines)
+      setCodeIndents(result.codeIndents)
+      if (result.author) setQuoteAuthor(result.author)
+    })
+    loaded.catch(() => {
+      // Word loading is best-effort on mount; keep defaults on failure.
+    })
     if (m === "time") setTimeLeft(to)
     inputRef.current?.focus()
   })
@@ -887,6 +978,323 @@ export function useTypingTest({
     })
   }, [typed, wordIndex, wordInputs, words, onKeyHighlight, activeWordRef])
 
+  /** Code-like modes treat Enter as a line commit instead of a word end. */
+  const isCodeLikeMode =
+    mode === "code" || (mode === "custom" && customCodeLanguage !== "")
+
+  /** Shared rAF: keep the active word row vertically centered. */
+  const scrollToActiveWord = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!activeWordRef.current) return
+      const word = activeWordRef.current
+      const lineH = word.offsetHeight + 4
+      const row = Math.round(word.offsetTop / lineH)
+      setRowOffset(Math.max(0, row - 1) * lineH)
+    })
+  }, [])
+
+  /** Start the test clock on the first keystroke of a session. */
+  const startTypingIfNeeded = useCallback(() => {
+    if (started) return
+    setStarted(true)
+    setStartTime(Date.now())
+    setShowControls(false)
+    onTypingActiveChange?.(true)
+  }, [started, onTypingActiveChange])
+
+  /** Per-second timer for timed tests; fires once per session. */
+  const startTimeModeTimer = useCallback(() => {
+    if (mode !== "time") return
+    let elapsedTicks = 0
+    timerRef.current = setInterval(() => {
+      elapsedTicks += 1
+      elapsedSecondsRef.current = elapsedTicks
+      const elapsedMin = elapsedTicks / 60
+      const snapWpm =
+        elapsedMin > 0
+          ? Math.round(correctCharsRef.current / 5 / elapsedMin)
+          : 0
+      const snapRaw =
+        elapsedMin > 0
+          ? Math.max(Math.round(allTypedRef.current / 5 / elapsedMin), snapWpm)
+          : 0
+      setWpmHistory((prev) => [
+        ...prev,
+        {
+          second: elapsedTicks,
+          wpm: snapWpm,
+          raw: snapRaw,
+          errors: errorsThisSecondRef.current,
+        },
+      ])
+      errorsThisSecondRef.current = 0
+      if (elapsedTicks >= timeOption) {
+        clearInterval(timerRef.current!)
+        timerRef.current = null
+        finishTestRef.current?.()
+      } else {
+        setTimeLeft(timeOption - elapsedTicks)
+      }
+    }, 1000)
+  }, [mode, timeOption])
+
+  /** Count mistyped characters (and the trailing overflow char) this second. */
+  const noteTypedErrors = useCallback(
+    (typedWord: string, targetWord: string) => {
+      for (let i = 0; i < Math.min(typedWord.length, targetWord.length); i++) {
+        if (typedWord[i] !== targetWord[i]) errorsThisSecondRef.current++
+      }
+      if (typedWord.length > targetWord.length) errorsThisSecondRef.current++
+    },
+    []
+  )
+
+  /** Advance to the next word after a committed input. */
+  const advanceToWord = useCallback(
+    (nextInputs: string[], nextIndex: number) => {
+      setWordInputs(nextInputs)
+      setWordIndex(nextIndex)
+      setTyped("")
+      onKeyHighlight?.(null)
+      scrollToActiveWord()
+    },
+    [onKeyHighlight, scrollToActiveWord]
+  )
+
+  /** Commit the current line and jump past it (code-like modes). */
+  const handleEnterInCodeMode = useCallback(() => {
+    let lineStart = 0
+    for (const lineLen of codeLines) {
+      const lineEnd = lineStart + lineLen - 1
+      if (wordIndex < lineStart || wordIndex > lineEnd) {
+        lineStart += lineLen
+        continue
+      }
+      const nextInputs = [...wordInputs]
+      for (let i = wordIndex; i <= lineEnd; i++) {
+        nextInputs[i] = i === wordIndex ? typed : ""
+      }
+      const nextIndex = lineEnd + 1
+      if (nextIndex >= words.length) {
+        setWordInputs(nextInputs)
+        finishTest(buildResultStats(nextInputs, "", nextIndex))
+        return
+      }
+      advanceToWord(nextInputs, nextIndex)
+      return
+    }
+  }, [
+    codeLines,
+    wordIndex,
+    wordInputs,
+    typed,
+    words.length,
+    finishTest,
+    buildResultStats,
+    advanceToWord,
+  ])
+
+  /** Commit the current word and move on (space key). */
+  const handleSpaceKey = useCallback(() => {
+    if (typed.length === 0) return
+    const currentWord = words[wordIndex]
+
+    allTypedRef.current += 1 // count the space keystroke so raw >= wpm
+    noteTypedErrors(typed, currentWord)
+
+    const nextInputs = [...wordInputs, typed]
+    const nextIndex = wordIndex + 1
+    recordWordSnapshot(nextInputs, "", nextIndex)
+
+    // record per-word timing
+    const now = Date.now()
+    if (wordStartTimeRef.current !== null) {
+      wordTimingsMsRef.current.push(now - wordStartTimeRef.current)
+    }
+    wordStartTimeRef.current = now
+
+    if (nextIndex >= words.length) {
+      setWordInputs(nextInputs)
+      finishTest(buildResultStats(nextInputs, "", nextIndex))
+      return
+    }
+    advanceToWord(nextInputs, nextIndex)
+  }, [
+    typed,
+    words,
+    wordIndex,
+    wordInputs,
+    allTypedRef,
+    noteTypedErrors,
+    recordWordSnapshot,
+    buildResultStats,
+    finishTest,
+    advanceToWord,
+  ])
+
+  /** Delete a character, or step back into the previous word. */
+  const handleBackspaceKey = useCallback(() => {
+    const currentWord = words[wordIndex]
+
+    if (typed.length === 0 && wordIndex > 0) {
+      const prevInput = wordInputs[wordIndex - 1]
+      setWordIndex((prev) => prev - 1)
+      setTyped(prevInput)
+      setWordInputs((prev) => prev.slice(0, -1))
+      scrollToActiveWord()
+      return
+    }
+    if (typed.length > 0) {
+      const lastIdx = typed.length - 1
+      const isWrong =
+        lastIdx >= currentWord.length || typed[lastIdx] !== currentWord[lastIdx]
+      if (isWrong) correctedErrorsRef.current += 1
+      setTyped((prev) => prev.slice(0, -1))
+    }
+  }, [words, wordIndex, typed, wordInputs, scrollToActiveWord])
+
+  /** Insert an auto-pair (e.g. "(") when the target word expects both halves. */
+  const tryAutoPair = useCallback(
+    (key: string, currentWord: string): boolean => {
+      const PAIR_MAP: Record<string, string> = {
+        "(": ")",
+        "{": "}",
+        "[": "]",
+        '"': '"',
+        "'": "'",
+        "`": "`",
+      }
+      if (!autoPair || !isCodeLikeMode || !PAIR_MAP[key]) return false
+
+      const closer = PAIR_MAP[key]
+      const charIndex = typed.length
+      if (
+        charIndex >= currentWord.length ||
+        currentWord[charIndex] !== key ||
+        currentWord[charIndex + 1] !== closer
+      )
+        return false
+
+      allTypedRef.current += 1
+      const nextTyped = typed + key + closer
+      setTyped(nextTyped)
+      if (key !== currentWord[charIndex]) onWrongKey?.()
+      const nextCharIndex = nextTyped.length
+      onKeyHighlight?.(
+        nextCharIndex < currentWord.length ? currentWord[nextCharIndex] : " "
+      )
+      return true
+    },
+    [autoPair, isCodeLikeMode, typed, onWrongKey, onKeyHighlight]
+  )
+
+  /** Insert a character, handling auto-pairs and the final-word finish. */
+  const handleCharacterKey = useCallback(
+    (key: string) => {
+      const currentWord = words[wordIndex]
+
+      if (tryAutoPair(key, currentWord)) return
+
+      allTypedRef.current += 1
+      const nextTyped = typed + key
+      setTyped(nextTyped)
+
+      const charIndex = typed.length
+      const isWrong =
+        charIndex >= currentWord.length || key !== currentWord[charIndex]
+      if (isWrong) onWrongKey?.()
+
+      const isLastWord = wordIndex + 1 >= words.length
+      if (
+        isLastWord &&
+        nextTyped.length >= currentWord.length &&
+        mode !== "time" &&
+        mode !== "zen"
+      ) {
+        noteTypedErrors(nextTyped, currentWord)
+        const nextInputs = [...wordInputs, nextTyped]
+        // record timing for last word
+        if (wordStartTimeRef.current !== null) {
+          wordTimingsMsRef.current.push(Date.now() - wordStartTimeRef.current)
+          wordStartTimeRef.current = null
+        }
+        setWordInputs(nextInputs)
+        recordWordSnapshot(nextInputs, "", wordIndex + 1)
+        finishTest(buildResultStats(nextInputs, "", wordIndex + 1))
+        return
+      }
+
+      const nextCharIndex = nextTyped.length
+      onKeyHighlight?.(
+        nextCharIndex < currentWord.length ? currentWord[nextCharIndex] : " "
+      )
+    },
+    [
+      words,
+      wordIndex,
+      typed,
+      wordInputs,
+      tryAutoPair,
+      mode,
+      onWrongKey,
+      onKeyHighlight,
+      noteTypedErrors,
+      recordWordSnapshot,
+      buildResultStats,
+      finishTest,
+    ]
+  )
+
+  /**
+   * Tab (restart chord), Enter shortcuts, and code-mode line commits.
+   * Returns true when the key was consumed.
+   */
+  const handleSpecialKeys = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>): boolean => {
+      if (e.key === "Tab") {
+        e.preventDefault()
+        tabPressedRef.current = true
+        setTimeout(() => {
+          tabPressedRef.current = false
+        }, 1000)
+        return true
+      }
+      if (e.key === "Enter" && tabPressedRef.current) {
+        e.preventDefault()
+        tabPressedRef.current = false
+        resetTest()
+        return true
+      }
+      if (e.key === "Enter" && e.shiftKey) {
+        e.preventDefault()
+        if (mode === "zen" && started && !finished) {
+          finishTest()
+        }
+        return true
+      }
+      if (e.key === "Enter" && isCodeLikeMode && !tabPressedRef.current) {
+        e.preventDefault()
+        if (finished) return true
+        startTypingIfNeeded()
+        markTypingActive()
+        handleEnterInCodeMode()
+        return true
+      }
+      return false
+    },
+    [
+      resetTest,
+      mode,
+      started,
+      finished,
+      finishTest,
+      isCodeLikeMode,
+      startTypingIfNeeded,
+      markTypingActive,
+      handleEnterInCodeMode,
+    ]
+  )
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (
@@ -899,28 +1307,10 @@ export function useTypingTest({
         return
       }
 
-      const isAltWordDelete =
-        e.altKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        (e.key === "Backspace" || e.key === "Delete")
-      const isCtrlBackspaceWordNav =
-        e.ctrlKey &&
-        !e.altKey &&
-        !e.metaKey &&
-        !e.shiftKey &&
-        e.key === "Backspace"
-
-      if (isAltWordDelete || isCtrlBackspaceWordNav) {
+      if (isWordDeleteCombo(e)) {
         e.preventDefault()
         if (finished) return
-        if (!started) {
-          setStarted(true)
-          setStartTime(Date.now())
-          setShowControls(false)
-          onTypingActiveChange?.(true)
-        }
+        startTypingIfNeeded()
         markTypingActive()
         clearWordOrNavigateBack()
         return
@@ -928,77 +1318,7 @@ export function useTypingTest({
 
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      if (e.key === "Tab") {
-        e.preventDefault()
-        tabPressedRef.current = true
-        setTimeout(() => {
-          tabPressedRef.current = false
-        }, 1000)
-        return
-      }
-      if (e.key === "Enter" && tabPressedRef.current) {
-        e.preventDefault()
-        tabPressedRef.current = false
-        resetTest()
-        return
-      }
-      if (e.key === "Enter" && e.shiftKey) {
-        e.preventDefault()
-        if (mode === "zen" && started && !finished) {
-          finishTest()
-        }
-        return
-      }
-
-      const isCodeLikeMode =
-        mode === "code" || (mode === "custom" && customCodeLanguage !== "")
-      if (
-        e.key === "Enter" &&
-        isCodeLikeMode &&
-        !e.shiftKey &&
-        !tabPressedRef.current
-      ) {
-        e.preventDefault()
-        if (finished) return
-        if (!started) {
-          setStarted(true)
-          setStartTime(Date.now())
-          setShowControls(false)
-          onTypingActiveChange?.(true)
-        }
-        markTypingActive()
-
-        let lineStart = 0
-        for (const lineLen of codeLines) {
-          const lineEnd = lineStart + lineLen - 1
-          if (wordIndex >= lineStart && wordIndex <= lineEnd) {
-            const nextInputs = [...wordInputs]
-            for (let i = wordIndex; i <= lineEnd; i++) {
-              nextInputs[i] = i === wordIndex ? typed : ""
-            }
-            const nextIndex = lineEnd + 1
-            if (nextIndex >= words.length) {
-              setWordInputs(nextInputs)
-              finishTest(buildResultStats(nextInputs, "", nextIndex))
-              return
-            }
-            setWordInputs(nextInputs)
-            setWordIndex(nextIndex)
-            setTyped("")
-            onKeyHighlight?.(null)
-            requestAnimationFrame(() => {
-              if (!activeWordRef.current) return
-              const word = activeWordRef.current
-              const lineH = word.offsetHeight + 4
-              const row = Math.round(word.offsetTop / lineH)
-              setRowOffset(Math.max(0, row - 1) * lineH)
-            })
-            return
-          }
-          lineStart += lineLen
-        }
-        return
-      }
+      if (handleSpecialKeys(e)) return
 
       if (finished) return
 
@@ -1012,220 +1332,41 @@ export function useTypingTest({
       if (e.key === "Backspace" && !started && typed.length === 0) return
 
       if (!started) {
-        const now = Date.now()
-        setStarted(true)
-        setStartTime(now)
-        wordStartTimeRef.current = now
-        setShowControls(false)
-        onTypingActiveChange?.(true)
-
-        if (mode === "time") {
-          let elapsedTicks = 0
-          timerRef.current = setInterval(() => {
-            elapsedTicks += 1
-            elapsedSecondsRef.current = elapsedTicks
-            const elapsedMin = elapsedTicks / 60
-            const snapWpm =
-              elapsedMin > 0
-                ? Math.round(correctCharsRef.current / 5 / elapsedMin)
-                : 0
-            const snapRaw =
-              elapsedMin > 0
-                ? Math.max(
-                    Math.round(allTypedRef.current / 5 / elapsedMin),
-                    snapWpm
-                  )
-                : 0
-            setWpmHistory((prev) => [
-              ...prev,
-              {
-                second: elapsedTicks,
-                wpm: snapWpm,
-                raw: snapRaw,
-                errors: errorsThisSecondRef.current,
-              },
-            ])
-            errorsThisSecondRef.current = 0
-            if (elapsedTicks >= timeOption) {
-              clearInterval(timerRef.current!)
-              timerRef.current = null
-              finishTestRef.current?.()
-            } else {
-              setTimeLeft(timeOption - elapsedTicks)
-            }
-          }, 1000)
-        }
+        wordStartTimeRef.current = Date.now()
+        startTypingIfNeeded()
+        startTimeModeTimer()
       }
 
       markTypingActive()
 
-      const currentWord = words[wordIndex]
-
       if (e.key === " ") {
         e.preventDefault()
-        if (typed.length === 0) return
-
-        allTypedRef.current += 1 // count the space keystroke so raw >= wpm
-
-        for (let i = 0; i < Math.min(typed.length, currentWord.length); i++) {
-          if (typed[i] !== currentWord[i]) errorsThisSecondRef.current++
-        }
-        if (typed.length > currentWord.length) errorsThisSecondRef.current++
-
-        const nextInputs = [...wordInputs, typed]
-        const nextIndex = wordIndex + 1
-        recordWordSnapshot(nextInputs, "", nextIndex)
-
-        // record per-word timing
-        const now = Date.now()
-        if (wordStartTimeRef.current !== null) {
-          wordTimingsMsRef.current.push(now - wordStartTimeRef.current)
-        }
-        wordStartTimeRef.current = now
-
-        if (wordIndex + 1 >= words.length) {
-          setWordInputs(nextInputs)
-          finishTest(buildResultStats(nextInputs, "", nextIndex))
-          return
-        }
-        setWordInputs(nextInputs)
-        setWordIndex(nextIndex)
-        setTyped("")
-        onKeyHighlight?.(null)
-
-        requestAnimationFrame(() => {
-          if (!activeWordRef.current) return
-          const word = activeWordRef.current
-          const lineH = word.offsetHeight + 4
-          const row = Math.round(word.offsetTop / lineH)
-          setRowOffset(Math.max(0, row - 1) * lineH)
-        })
+        handleSpaceKey()
         return
       }
 
       if (e.key === "Backspace") {
-        if (typed.length === 0 && wordIndex > 0) {
-          const prevInput = wordInputs[wordIndex - 1]
-          setWordIndex((prev) => prev - 1)
-          setTyped(prevInput)
-          setWordInputs((prev) => prev.slice(0, -1))
-
-          requestAnimationFrame(() => {
-            if (!activeWordRef.current) return
-            const word = activeWordRef.current
-            const lineH = word.offsetHeight + 4
-            const row = Math.round(word.offsetTop / lineH)
-            setRowOffset(Math.max(0, row - 1) * lineH)
-          })
-        } else if (typed.length > 0) {
-          const lastIdx = typed.length - 1
-          const isWrong =
-            lastIdx >= currentWord.length ||
-            typed[lastIdx] !== currentWord[lastIdx]
-          if (isWrong) correctedErrorsRef.current += 1
-          setTyped((prev) => prev.slice(0, -1))
-        }
+        handleBackspaceKey()
         return
       }
 
       if (e.key.length === 1) {
-        const PAIR_MAP: Record<string, string> = {
-          "(": ")",
-          "{": "}",
-          "[": "]",
-          '"': '"',
-          "'": "'",
-          "`": "`",
-        }
-        if (autoPair && isCodeLikeMode && PAIR_MAP[e.key]) {
-          const closer = PAIR_MAP[e.key]
-          const charIndex = typed.length
-
-          if (
-            charIndex < currentWord.length &&
-            currentWord[charIndex] === e.key &&
-            currentWord[charIndex + 1] === closer
-          ) {
-            allTypedRef.current += 1
-            const nextTyped = typed + e.key + closer
-            setTyped(nextTyped)
-            const isWrong = e.key !== currentWord[charIndex]
-            if (isWrong) onWrongKey?.()
-            const nextCharIndex = nextTyped.length
-            onKeyHighlight?.(
-              nextCharIndex < currentWord.length
-                ? currentWord[nextCharIndex]
-                : " "
-            )
-            return
-          }
-        }
-
-        allTypedRef.current += 1
-        const nextTyped = typed + e.key
-        setTyped(nextTyped)
-
-        const charIndex = typed.length
-        const isWrong =
-          charIndex >= currentWord.length || e.key !== currentWord[charIndex]
-        if (isWrong) onWrongKey?.()
-
-        const isLastWord = wordIndex + 1 >= words.length
-        if (
-          isLastWord &&
-          nextTyped.length >= currentWord.length &&
-          mode !== "time" &&
-          mode !== "zen"
-        ) {
-          for (
-            let i = 0;
-            i < Math.min(nextTyped.length, currentWord.length);
-            i++
-          ) {
-            if (nextTyped[i] !== currentWord[i]) errorsThisSecondRef.current++
-          }
-          if (nextTyped.length > currentWord.length)
-            errorsThisSecondRef.current++
-          const nextInputs = [...wordInputs, nextTyped]
-          // record timing for last word
-          if (wordStartTimeRef.current !== null) {
-            wordTimingsMsRef.current.push(Date.now() - wordStartTimeRef.current)
-            wordStartTimeRef.current = null
-          }
-          setWordInputs(nextInputs)
-          recordWordSnapshot(nextInputs, "", wordIndex + 1)
-          finishTest(buildResultStats(nextInputs, "", wordIndex + 1))
-          return
-        }
-
-        const nextCharIndex = nextTyped.length
-        onKeyHighlight?.(
-          nextCharIndex < currentWord.length ? currentWord[nextCharIndex] : " "
-        )
+        handleCharacterKey(e.key)
       }
     },
     [
       finished,
       started,
-      words,
-      codeLines,
-      wordIndex,
       typed,
-      wordInputs,
-      mode,
-      customCodeLanguage,
-      timeOption,
-      resetTest,
-      finishTest,
-      onKeyHighlight,
-      autoPair,
       disabled,
-      recordWordSnapshot,
       markTypingActive,
-      onTypingActiveChange,
-      onWrongKey,
+      startTypingIfNeeded,
+      startTimeModeTimer,
+      handleSpecialKeys,
+      handleSpaceKey,
+      handleBackspaceKey,
+      handleCharacterKey,
       clearWordOrNavigateBack,
-      buildResultStats,
     ]
   )
 
@@ -1419,7 +1560,7 @@ export function useTypingTest({
   )
 
   const onTimeOptionChange = useCallback(
-    (next: TimeOption) => {
+    (next: number) => {
       setTimeOption(next)
       localStorage.setItem(TIME_OPTION_STORAGE_KEY, String(next))
       resetTest({ timeOption: next })
@@ -1428,7 +1569,7 @@ export function useTypingTest({
   )
 
   const onWordOptionChange = useCallback(
-    (next: WordOption) => {
+    (next: number) => {
       practiceWordsRef.current = null // changing word count exits practice mode
       setWordOption(next)
       localStorage.setItem(WORD_OPTION_STORAGE_KEY, String(next))
@@ -1548,7 +1689,6 @@ export function useTypingTest({
     wpm,
     accuracy,
     capsLock,
-    codeLoading,
 
     isRTL,
     controlsVisible,
@@ -1584,7 +1724,7 @@ export function useTypingTest({
       const others = (CODE_MANIFEST[codeLanguage]?.chapters ?? []).filter(
         (c) => c !== codeChapter
       )
-      const pick = others[Math.floor(Math.random() * others.length)]
+      const pick = randomPick(others)
       if (pick) {
         setCodeChapter(pick)
         localStorage.setItem(CODE_CHAPTER_STORAGE_KEY, pick)

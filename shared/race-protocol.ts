@@ -219,3 +219,86 @@ export type ServerMessage =
   | PlayerLeftMsg
   | QueueStatusMsg
   | MatchedMsg
+
+// ── Untrusted input sanitization ─────────────────────────────────────────────
+// Every client-supplied value that reaches room state must pass through one of
+// these helpers first. Values come from untrusted JSON (WebSocket messages and
+// the HTTP room-config endpoint), so bounds are enforced server-side rather
+// than trusting the UI's own limits.
+
+export const WORD_OPTIONS = [10, 25, 50, 100] as const
+export const TIME_OPTIONS = [15, 30, 60, 120] as const
+export const DIFFICULTIES = ["easy", "medium", "hard"] as const
+export const RACE_MODES = ["words", "time"] as const
+export const MAX_NICKNAME_LENGTH = 20
+
+export type Difficulty = (typeof DIFFICULTIES)[number]
+
+// Curated palette — high contrast on both light and dark backgrounds.
+// Defined here (not lib/race-identity.ts) so both the client identity module
+// and the runtime-neutral sanitizers below can use it.
+export const PLAYER_COLORS = [
+  "#22d3ee", // cyan
+  "#f472b6", // pink
+  "#a78bfa", // violet
+  "#fb923c", // orange
+  "#4ade80", // green
+  "#f87171", // red
+  "#facc15", // yellow
+  "#60a5fa", // blue
+] as const
+
+/** Sanitize a client-supplied player color, falling back to the first palette color. */
+export function sanitizeColor(color: unknown): string {
+  if (typeof color === "string") {
+    const normalized = color.trim().toLowerCase()
+    if ((PLAYER_COLORS as readonly string[]).includes(normalized))
+      return normalized
+  }
+  return PLAYER_COLORS[0]
+}
+
+/**
+ * Sanitize a client-supplied nickname. Returns null when nothing usable
+ * remains (callers decide whether to reject or substitute a default).
+ */
+export function sanitizeNickname(nickname: unknown): string | null {
+  if (typeof nickname !== "string") return null
+  // Strip control characters and ANSI escapes so no player can inject
+  // terminal/rendering control sequences into other clients.
+  const cleaned = nickname
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .slice(0, MAX_NICKNAME_LENGTH)
+  return cleaned.length > 0 ? cleaned : null
+}
+
+/** Sanitize a client-supplied race mode, returning null when invalid. */
+export function sanitizeMode(mode: unknown): RaceMode | null {
+  return (RACE_MODES as readonly string[]).includes(mode as string)
+    ? (mode as RaceMode)
+    : null
+}
+
+/** Sanitize a client-supplied difficulty, returning null when invalid. */
+export function sanitizeDifficulty(difficulty: unknown): Difficulty | null {
+  return (DIFFICULTIES as readonly string[]).includes(difficulty as string)
+    ? (difficulty as Difficulty)
+    : null
+}
+
+/**
+ * Sanitize a client-supplied word/time option. Accepts the UI's exact option
+ * values, or any integer within the supported range (the options lists are a
+ * product decision; the range is the security boundary).
+ */
+export function sanitizeOption(
+  value: unknown,
+  allowed: readonly number[],
+  min: number,
+  max: number
+): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) return null
+  if (value < min || value > max) return null
+  return value
+}

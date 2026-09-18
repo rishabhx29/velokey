@@ -1074,6 +1074,13 @@ function ToggleRow({
   const isMobile = isMobileProp
   const isDisabled = !!disabledReason && isMobile
 
+  let trackClass = "cursor-pointer bg-muted"
+  if (isDisabled) {
+    trackClass = "cursor-not-allowed bg-muted opacity-40"
+  } else if (enabled) {
+    trackClass = "cursor-pointer bg-primary"
+  }
+
   return (
     <div
       className="flex items-center justify-between"
@@ -1099,11 +1106,7 @@ function ToggleRow({
         disabled={isDisabled}
         className={cn(
           "relative h-5 w-9 rounded-full transition-colors duration-200",
-          isDisabled
-            ? "cursor-not-allowed bg-muted opacity-40"
-            : enabled
-              ? "cursor-pointer bg-primary"
-              : "cursor-pointer bg-muted"
+          trackClass
         )}
       >
         <span

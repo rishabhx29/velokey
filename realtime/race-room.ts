@@ -12,6 +12,7 @@ import type {
   RaceProgress,
   LeaderboardEntry,
   FinishMsg,
+  MatchmakeMsg,
 } from "../shared/race-protocol"
 import {
   MAX_PLAYERS,
@@ -28,6 +29,41 @@ import {
 import { validateResultStats } from "../shared/result-validation"
 import { generateRaceWords } from "../shared/race-words"
 import { rankLeaderboard } from "../shared/race-standings"
+import { randomPick } from "../lib/secure-random"
+import {
+  TIME_OPTIONS,
+  WORD_OPTIONS,
+  sanitizeColor,
+  sanitizeDifficulty,
+  sanitizeMode,
+  sanitizeNickname,
+  sanitizeOption,
+} from "../shared/race-protocol"
+
+// Time mode generates this many words up front so nobody runs out mid-race.
+const TIME_MODE_GENERATED_WORDS = 200
+
+/**
+ * Whitelist-sanitize a room-config payload from the HTTP endpoint or a
+ * matchmake message. Returns only the fields that are valid; invalid or
+ * missing fields are omitted so existing state is kept.
+ */
+export function sanitizeRoomConfig(
+  config: Partial<RoomConfig> | Record<string, unknown>
+): Partial<RoomConfig> {
+  const out: Partial<RoomConfig> = {}
+  const mode = sanitizeMode(config.mode)
+  if (mode) out.mode = mode
+  const wordOption = sanitizeOption(config.wordOption, WORD_OPTIONS, 1, 1000)
+  if (wordOption !== null) out.wordOption = wordOption
+  const timeOption = sanitizeOption(config.timeOption, TIME_OPTIONS, 1, 3600)
+  if (timeOption !== null) out.timeOption = timeOption
+  const difficulty = sanitizeDifficulty(config.difficulty)
+  if (difficulty) out.difficulty = difficulty
+  if (typeof config.isQuickMatch === "boolean")
+    out.isQuickMatch = config.isQuickMatch
+  return out
+}
 
 // ── Room State ───────────────────────────────────────────────────────────────
 
@@ -133,12 +169,8 @@ export default class RaceRoom implements Party.Server {
       }
       try {
         const config = (await req.json()) as Partial<RoomConfig>
-        if (config.mode) this.state.config.mode = config.mode
-        if (config.wordOption) this.state.config.wordOption = config.wordOption
-        if (config.timeOption) this.state.config.timeOption = config.timeOption
-        if (config.difficulty) this.state.config.difficulty = config.difficulty
-        if (config.isQuickMatch !== undefined)
-          this.state.config.isQuickMatch = config.isQuickMatch
+        const sanitized = sanitizeRoomConfig(config)
+        this.state.config = { ...this.state.config, ...sanitized }
 
         return new Response(
           JSON.stringify({ ok: true, config: this.state.config }),
@@ -183,14 +215,14 @@ export default class RaceRoom implements Party.Server {
   }
 
   onClose(conn: Party.Connection) {
-    if (this.isMatchmaker) {
-      this.removeFromMatchQueue(conn.id)
-      return
-    }
-    this.handleDisconnect(conn.id)
+    this.handleConnectionLost(conn)
   }
 
   onError(conn: Party.Connection) {
+    this.handleConnectionLost(conn)
+  }
+
+  private handleConnectionLost(conn: Party.Connection) {
     if (this.isMatchmaker) {
       this.removeFromMatchQueue(conn.id)
       return
@@ -216,7 +248,12 @@ export default class RaceRoom implements Party.Server {
 
     switch (msg.type) {
       case "join":
-        this.handleJoin(sender, msg.nickname, msg.color, msg.sessionId)
+        this.handleJoin(
+          sender,
+          sanitizeNickname(msg.nickname),
+          sanitizeColor(msg.color),
+          sanitizeNickname(msg.sessionId) // opaque token, same charset rules apply
+        )
         break
       case "ready":
         this.handleReady(sender.id, msg.ready)
@@ -243,9 +280,9 @@ export default class RaceRoom implements Party.Server {
 
   private handleJoin(
     conn: Party.Connection,
-    nickname: string,
+    nickname: string | null,
     color: string,
-    sessionId: string
+    sessionId: string | null
   ) {
     const previous = Array.from(this.state.players.values()).find(
       (player) => player.sessionId === sessionId
@@ -285,6 +322,10 @@ export default class RaceRoom implements Party.Server {
       }
       return
     }
+    if (!nickname || !sessionId) {
+      this.send(conn, { type: "error", message: "Invalid join payload" })
+      return
+    }
     if (this.state.status !== "lobby") {
       this.send(conn, { type: "error", message: "Race already in progress" })
       return
@@ -299,7 +340,7 @@ export default class RaceRoom implements Party.Server {
       id: conn.id,
       connectionId: conn.id,
       sessionId,
-      nickname: nickname.slice(0, 20),
+      nickname,
       color,
       isHost,
       ready: false,
@@ -349,9 +390,11 @@ export default class RaceRoom implements Party.Server {
       return
     }
 
-    // Generate words
+    // Generate words. For time mode generate plenty so nobody runs out.
     const wordCount =
-      this.state.config.mode === "words" ? this.state.config.wordOption : 200 // For time mode, generate plenty of words
+      this.state.config.mode === "time"
+        ? TIME_MODE_GENERATED_WORDS
+        : this.state.config.wordOption
     this.state.words = generateRaceWords(
       wordCount,
       this.state.config.difficulty
@@ -575,20 +618,30 @@ export default class RaceRoom implements Party.Server {
     if (!player) return
 
     if (!immediate) {
-      player.connected = false
-      this.broadcastRoomState()
-      const existingTimer = this.state.disconnectTimers.get(connectionId)
-      if (existingTimer) clearTimeout(existingTimer)
-      this.state.disconnectTimers.set(
-        connectionId,
-        setTimeout(() => {
-          this.state.disconnectTimers.delete(connectionId)
-          this.handleDisconnect(connectionId, true)
-        }, DISCONNECT_GRACE_MS)
-      )
+      this.startDisconnectGracePeriod(player, connectionId)
       return
     }
 
+    this.removePlayer(connectionId)
+  }
+
+  /** Mark the player as disconnected and schedule hard removal after the grace window. */
+  private startDisconnectGracePeriod(player: Player, connectionId: string) {
+    player.connected = false
+    this.broadcastRoomState()
+    const existingTimer = this.state.disconnectTimers.get(connectionId)
+    if (existingTimer) clearTimeout(existingTimer)
+    this.state.disconnectTimers.set(
+      connectionId,
+      setTimeout(() => {
+        this.state.disconnectTimers.delete(connectionId)
+        this.handleDisconnect(connectionId, true)
+      }, DISCONNECT_GRACE_MS)
+    )
+  }
+
+  /** Hard-remove a disconnected player, migrating host and resetting an empty room. */
+  private removePlayer(connectionId: string) {
     this.state.players.delete(connectionId)
     this.state.progress.delete(connectionId)
     this.state.finishData.delete(connectionId)
@@ -596,17 +649,7 @@ export default class RaceRoom implements Party.Server {
     if (disconnectTimer) clearTimeout(disconnectTimer)
     this.state.disconnectTimers.delete(connectionId)
 
-    // Host migration
-    let newHostId: string | undefined
-    if (connectionId === this.state.hostId && this.state.players.size > 0) {
-      const firstPlayer = this.state.players.entries().next().value
-      if (firstPlayer) {
-        const [id, p] = firstPlayer
-        p.isHost = true
-        this.state.hostId = id
-        newHostId = id
-      }
-    }
+    const newHostId = this.migrateHostIfNeeded(connectionId)
 
     this.broadcast({
       type: "player_left",
@@ -623,20 +666,40 @@ export default class RaceRoom implements Party.Server {
     // When the last player leaves mid-race, reset the room so a fresh join
     // doesn't hit "Race already in progress" on a zombie room.
     if (this.state.players.size === 0 && this.state.status !== "lobby") {
-      this.state.status = "lobby"
-      this.state.words = []
-      this.state.progress.clear()
-      this.state.finishData.clear()
-      if (this.state.countdownTimer) {
-        clearInterval(this.state.countdownTimer)
-        this.state.countdownTimer = null
-      }
-      if (this.state.raceEndTimer) {
-        clearTimeout(this.state.raceEndTimer)
-        this.state.raceEndTimer = null
-      }
-      this.state.raceStartTime = 0
+      this.resetEmptyRoom()
     }
+  }
+
+  /** Promote the first remaining player to host when the host leaves. */
+  private migrateHostIfNeeded(leavingConnectionId: string): string | undefined {
+    if (
+      leavingConnectionId !== this.state.hostId ||
+      this.state.players.size === 0
+    )
+      return undefined
+    const firstPlayer = this.state.players.entries().next().value
+    if (!firstPlayer) return undefined
+    const [id, p] = firstPlayer
+    p.isHost = true
+    this.state.hostId = id
+    return id
+  }
+
+  /** Reset a room abandoned mid-race so a fresh join doesn't hit a zombie room. */
+  private resetEmptyRoom() {
+    this.state.status = "lobby"
+    this.state.words = []
+    this.state.progress.clear()
+    this.state.finishData.clear()
+    if (this.state.countdownTimer) {
+      clearInterval(this.state.countdownTimer)
+      this.state.countdownTimer = null
+    }
+    if (this.state.raceEndTimer) {
+      clearTimeout(this.state.raceEndTimer)
+      this.state.raceEndTimer = null
+    }
+    this.state.raceStartTime = 0
   }
 
   // ── Quick matchmaking (the dedicated coordinator room) ──────────────────
@@ -652,41 +715,15 @@ export default class RaceRoom implements Party.Server {
     if (msg.type !== "matchmake") return
 
     this.removeFromMatchQueue(sender.id)
-    const entry: MatchQueueEntry = {
-      connection: sender,
-      connectionId: sender.id,
-      sessionId: msg.sessionId,
-      nickname: msg.nickname.slice(0, 20),
-      color: msg.color,
-      config: msg.config,
-      joinedAt: Date.now(),
-    }
+    const entry = this.buildMatchQueueEntry(msg, sender)
+    if (!entry) return
 
     // Batch matchmaking: instead of pairing the first compatible queued
     // player 1:1 (one Durable Object per pair), collect players into a
     // batch and place them together in a single room once the batch is
     // full or the window expires. Fuller rooms, fewer rooms.
     const key = this.matchConfigKey(entry.config)
-    let batch = this.matchBatches.get(key)
-    if (!batch) {
-      // Seed the new batch with anyone left waiting in the queue from a
-      // previous under-minimum flush so they are not orphaned.
-      const waiting = Array.from(this.matchQueue.values()).filter(
-        (e) => this.matchConfigKey(e.config) === key
-      )
-      for (const e of waiting) this.matchQueue.delete(e.connectionId)
-      const timer = setTimeout(
-        () => this.flushMatchBatch(key),
-        MATCH_BATCH_WINDOW_MS
-      )
-      batch = {
-        config: entry.config,
-        entries: waiting,
-        flushAt: Date.now() + MATCH_BATCH_WINDOW_MS,
-        timer,
-      }
-      this.matchBatches.set(key, batch)
-    }
+    const batch = this.acquireMatchBatch(key, entry.config)
     batch.entries.push(entry)
 
     if (batch.entries.length >= MATCH_BATCH_SIZE) {
@@ -696,6 +733,62 @@ export default class RaceRoom implements Party.Server {
     }
 
     this.broadcastQueueStatus()
+  }
+
+  private buildMatchQueueEntry(
+    msg: MatchmakeMsg,
+    sender: Party.Connection
+  ): MatchQueueEntry | null {
+    const nickname = sanitizeNickname(msg.nickname)
+    const sessionId = sanitizeNickname(msg.sessionId)
+    if (!nickname || !sessionId) return null
+    return {
+      connection: sender,
+      connectionId: sender.id,
+      sessionId,
+      nickname,
+      color: sanitizeColor(msg.color),
+      config: {
+        ...sanitizeRoomConfig(msg.config),
+        mode: sanitizeMode(msg.config.mode) ?? "words",
+        wordOption:
+          sanitizeOption(msg.config.wordOption, WORD_OPTIONS, 1, 1000) ?? 25,
+        timeOption:
+          sanitizeOption(msg.config.timeOption, TIME_OPTIONS, 1, 3600) ?? 30,
+        difficulty: sanitizeDifficulty(msg.config.difficulty) ?? "easy",
+      },
+      joinedAt: Date.now(),
+    }
+  }
+
+  /**
+   * Return the pending batch for `key`, creating it — seeded with compatible
+   * players still waiting in the queue from a previous under-minimum flush,
+   * so they are not orphaned — when none exists yet.
+   */
+  private acquireMatchBatch(
+    key: string,
+    config: MatchQueueEntry["config"]
+  ): MatchBatch {
+    const existing = this.matchBatches.get(key)
+    if (existing) return existing
+
+    const waiting = Array.from(this.matchQueue.values()).filter(
+      (e) => this.matchConfigKey(e.config) === key
+    )
+    for (const e of waiting) this.matchQueue.delete(e.connectionId)
+    const timer = setTimeout(
+      () => this.flushMatchBatch(key),
+      MATCH_BATCH_WINDOW_MS
+    )
+    const batch: MatchBatch = {
+      config,
+      entries: waiting,
+      flushAt: Date.now() + MATCH_BATCH_WINDOW_MS,
+      timer,
+    }
+    this.matchBatches.set(key, batch)
+    return batch
   }
 
   private matchConfigKey(config: MatchQueueEntry["config"]): string {
@@ -804,19 +897,8 @@ export default class RaceRoom implements Party.Server {
    */
   private async generateMatchRoomCode(): Promise<string> {
     const characters = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-    const randomSuffix = () => {
-      let suffix = ""
-      if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-        const bytes = new Uint8Array(4)
-        crypto.getRandomValues(bytes)
-        for (let i = 0; i < 4; i += 1)
-          suffix += characters[bytes[i] % characters.length]
-      } else {
-        for (let index = 0; index < 4; index += 1)
-          suffix += characters[Math.floor(Math.random() * characters.length)]
-      }
-      return suffix
-    }
+    const randomSuffix = () =>
+      Array.from({ length: 4 }, () => randomPick([...characters])).join("")
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const candidate = `VELO-${randomSuffix()}`
@@ -861,12 +943,15 @@ export default class RaceRoom implements Party.Server {
   private stripConnectionId(
     player: Player & { connectionId: string; sessionId: string }
   ): Player {
-    const {
-      connectionId: _connectionId,
-      sessionId: _sessionId,
-      ...rest
-    } = player
-    return rest
+    // Public view: omit the server-only fields (never serialize them).
+    return {
+      id: player.id,
+      nickname: player.nickname,
+      color: player.color,
+      isHost: player.isHost,
+      ready: player.ready,
+      connected: player.connected,
+    }
   }
 
   private scheduleProgressBroadcast() {

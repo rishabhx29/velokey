@@ -3,12 +3,12 @@ import {
   getOrCreateNickname,
   getOrCreateSessionId,
   setNickname,
-  PLAYER_COLORS,
   refreshNickname,
   getNickname,
   getOrCreateColor,
   setColor,
 } from "@/lib/race-identity"
+import { PLAYER_COLORS } from "@/shared/race-protocol"
 
 describe("race identity", () => {
   it("creates and persists a nickname", () => {

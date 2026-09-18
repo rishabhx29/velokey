@@ -1,36 +1,28 @@
 import { generate } from "random-words"
+import { randomInt, randomPick, randomShuffle } from "@/lib/secure-random"
 
 const punctuationMarks = [".", ",", "!", "?", ";", ":"] as const
 
 export type Difficulty = "easy" | "medium" | "hard"
 
-function shuffleInPlace(words: string[]): void {
-  for (let i = words.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[words[i], words[j]] = [words[j], words[i]]
-  }
-}
-
 function pickWithoutReplacement(pool: string[], count: number): string[] {
   const unique = [...new Set(pool)]
   if (unique.length === 0) return []
   const out: string[] = []
-  let deck = [...unique]
-  shuffleInPlace(deck)
+  let deck = randomShuffle(unique)
   let i = 0
 
   while (out.length < count) {
     if (i >= deck.length) {
       const prev = out[out.length - 1]
-      deck = [...unique]
-      shuffleInPlace(deck)
+      deck = randomShuffle(unique)
       i = 0
       if (prev !== undefined && deck[0] === prev && deck.length > 1) {
-        const swapIdx = 1 + Math.floor(Math.random() * (deck.length - 1))
-        ;[deck[0], deck[swapIdx]] = [deck[swapIdx], deck[0]]
+        const swapIdx = 1 + randomInt(deck.length - 1)
+        ;[deck[0], deck[swapIdx]] = [deck[swapIdx] as string, deck[0] as string]
       }
     }
-    out.push(deck[i]!)
+    out.push(deck[i] as string)
     i += 1
   }
 
@@ -42,19 +34,17 @@ function applyModifiers(
   options?: { punctuation?: boolean; numbers?: boolean }
 ): string[] {
   return raw.map((word) => {
-    if (options?.numbers && Math.random() < 0.15) {
-      return String(Math.floor(Math.random() * 10000))
+    if (options?.numbers && randomInt(100) < 15) {
+      return String(randomInt(10000))
     }
     if (!options?.punctuation) return word
-    const rand = Math.random()
-    if (rand < 0.1) {
-      return (
-        word +
-        punctuationMarks[Math.floor(Math.random() * punctuationMarks.length)]
-      )
-    } else if (rand < 0.15) {
+    // rand is a uniform integer in [0, 1000): 100 ≈ 10%, 150 ≈ 15%, 200 ≈ 20%
+    const rand = randomInt(1000)
+    if (rand < 100) {
+      return word + randomPick(punctuationMarks)
+    } else if (rand < 150) {
       return `"${word}"`
-    } else if (rand < 0.2) {
+    } else if (rand < 200) {
       return word.charAt(0).toUpperCase() + word.slice(1)
     }
     return word
@@ -133,8 +123,10 @@ export function generateFocusWords(
     }
     return { word: w, score }
   })
-  scored.sort((a, b) => b.score - a.score || Math.random() - 0.5)
-  const candidates = scored.filter((s) => s.score > 0).map((s) => s.word)
+  // Shuffle first so equal scores keep a random order (sort is stable).
+  const shuffled = randomShuffle(scored)
+  shuffled.sort((a, b) => b.score - a.score)
+  const candidates = shuffled.filter((s) => s.score > 0).map((s) => s.word)
   const selectedPool = candidates.length >= 10 ? candidates : pool
   return pickWithoutReplacement(selectedPool, count)
 }

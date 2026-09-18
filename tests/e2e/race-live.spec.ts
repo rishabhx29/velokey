@@ -44,12 +44,7 @@ test.describe("Race room (live PartyKit)", () => {
     // A unique code per run avoids interference with rooms left in a
     // transient state by previous runs. Charset matches lib/room-code.ts
     // (no 0/O/1/I/L).
-    const CHARSET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-    const suffix = Array.from(
-      { length: 4 },
-      () => CHARSET[Math.floor(Math.random() * CHARSET.length)]
-    ).join("")
-    const roomCode = `VELO-${suffix}`
+    const roomCode = `VELO-${crypto.randomUUID().slice(0, 4).toUpperCase().replace(/[0-1]/g, "X")}`
     const configure = await ctxA.request.post(
       "http://127.0.0.1:1999/parties/main/" + roomCode,
       {

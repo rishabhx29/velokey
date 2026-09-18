@@ -88,7 +88,7 @@ type ControlledParentModeHighlightProps<T extends React.ElementType = "div"> =
 
 type ControlledChildrenModeHighlightProps<T extends React.ElementType = "div"> =
   BaseHighlightProps<T> & {
-    mode?: "children" | undefined
+    mode?: "children"
     controlledItems: true
     children: React.ReactNode
   }
@@ -299,6 +299,18 @@ function Highlight<T extends React.ElementType = "div">({
     return children
   }
 
+  const renderEnabledChildren = () => {
+    if (!enabled) return children
+    if (controlledItems) return render(children)
+    return render(
+      React.Children.map(children, (child, index) => (
+        <HighlightItem key={index} className={props?.itemsClassName}>
+          {child}
+        </HighlightItem>
+      ))
+    )
+  }
+
   return (
     <HighlightContext.Provider
       value={{
@@ -322,17 +334,7 @@ function Highlight<T extends React.ElementType = "div">({
           ?.forceUpdateBounds,
       }}
     >
-      {enabled
-        ? controlledItems
-          ? render(children)
-          : render(
-              React.Children.map(children, (child, index) => (
-                <HighlightItem key={index} className={props?.itemsClassName}>
-                  {child}
-                </HighlightItem>
-              ))
-            )
-        : children}
+      {renderEnabledChildren()}
     </HighlightContext.Provider>
   )
 }
@@ -489,25 +491,28 @@ function HighlightItem<T extends React.ElementType>({
     "data-highlight": true,
   }
 
-  const commonHandlers = hover
-    ? {
-        onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => {
-          setActiveValue(childValue)
-          element.props.onMouseEnter?.(e)
-        },
-        onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => {
-          setActiveValue(null)
-          element.props.onMouseLeave?.(e)
-        },
-      }
-    : click
-      ? {
-          onClick: (e: React.MouseEvent<HTMLDivElement>) => {
-            setActiveValue(childValue)
-            element.props.onClick?.(e)
-          },
-        }
-      : {}
+  const hoverHandlers = {
+    onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => {
+      setActiveValue(childValue)
+      element.props.onMouseEnter?.(e)
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => {
+      setActiveValue(null)
+      element.props.onMouseLeave?.(e)
+    },
+  }
+  const clickHandlers = {
+    onClick: (e: React.MouseEvent<HTMLDivElement>) => {
+      setActiveValue(childValue)
+      element.props.onClick?.(e)
+    },
+  }
+  let commonHandlers: Record<string, unknown> = {}
+  if (hover) {
+    commonHandlers = hoverHandlers
+  } else if (click) {
+    commonHandlers = clickHandlers
+  }
 
   if (asChild) {
     if (mode === "children") {

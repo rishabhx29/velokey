@@ -63,6 +63,24 @@ const KEYBOARD_ROWS = [
   ["z", "x", "c", "v", "b", "n", "m"],
 ]
 
+// Staggered home-row indent per keyboard row (px → rem strings)
+const KEYBOARD_ROW_INDENTS = new Map<number, string>([
+  [1, "1rem"],
+  [2, "2.5rem"],
+])
+
+const TIME_RANGE_DAYS = new Map<string, number>([
+  ["7d", 7],
+  ["30d", 30],
+  ["90d", 90],
+])
+
+function accuracyColor(accuracy: number): string {
+  if (accuracy >= 95) return "var(--color-primary)"
+  if (accuracy >= 85) return "oklch(0.72 0.18 75)"
+  return "oklch(0.55 0.22 25)"
+}
+
 function StatCard({
   icon,
   label,
@@ -107,7 +125,7 @@ function KeyboardHeatmap({
           key={rowIdx}
           className="flex gap-1.5"
           style={{
-            paddingLeft: rowIdx === 1 ? "1rem" : rowIdx === 2 ? "2.5rem" : 0,
+            paddingLeft: KEYBOARD_ROW_INDENTS.get(rowIdx) ?? 0,
           }}
         >
           {row.map((key) => {
@@ -160,12 +178,8 @@ export default function StatsPage() {
 
   const filteredHistory = useMemo(() => {
     if (timeRange === "all" || loadedAt === null) return history
-    const ms =
-      timeRange === "7d"
-        ? 7 * 86400000
-        : timeRange === "30d"
-          ? 30 * 86400000
-          : 90 * 86400000
+    const rangeDays = TIME_RANGE_DAYS.get(timeRange) ?? 90
+    const ms = rangeDays * 86400000
     const cutoff = loadedAt - ms
     return history.filter((h) => new Date(h.timestamp).getTime() >= cutoff)
   }, [history, timeRange, loadedAt])
@@ -545,12 +559,7 @@ export default function StatsPage() {
                       <td
                         className="px-3 py-2 text-right tabular-nums"
                         style={{
-                          color:
-                            entry.accuracy >= 95
-                              ? "var(--color-primary)"
-                              : entry.accuracy >= 85
-                                ? "oklch(0.72 0.18 75)"
-                                : "oklch(0.55 0.22 25)",
+                          color: accuracyColor(entry.accuracy),
                         }}
                       >
                         {entry.accuracy}%

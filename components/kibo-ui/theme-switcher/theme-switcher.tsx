@@ -24,10 +24,12 @@ const themes = [
   },
 ]
 
+export type ThemePreference = "light" | "dark" | "system"
+
 export interface ThemeSwitcherProps {
-  value?: "light" | "dark" | "system"
-  onChange?: (theme: "light" | "dark" | "system") => void
-  defaultValue?: "light" | "dark" | "system"
+  value?: ThemePreference
+  onChange?: (theme: ThemePreference) => void
+  defaultValue?: ThemePreference
   className?: string
 }
 

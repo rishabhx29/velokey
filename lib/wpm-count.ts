@@ -1,5 +1,5 @@
-
-export type WpmCountMode = "time" | "words" | "quote" | "zen" | "code" | "custom" | "brainrot" | "focus"
+export type WpmCountMode =
+  "time" | "words" | "quote" | "zen" | "code" | "custom" | "brainrot" | "focus"
 
 export interface WpmCounts {
   correctWordChars: number
@@ -19,6 +19,57 @@ interface CountParams {
   final: boolean
 }
 
+/** Per-character comparison verdict between a typed word and its target. */
+interface CharDiff {
+  allCorrect: number
+  incorrect: number
+  extra: number
+  missed: number
+}
+
+/**
+ * Compare a typed word against its target character-by-character.
+ * Characters beyond the shorter of the two words count as extra (typed
+ * too much) or missed (typed too little).
+ */
+function diffChars(inputWord: string, targetWord: string): CharDiff {
+  let allCorrect = 0
+  let incorrect = 0
+  const shared = Math.min(inputWord.length, targetWord.length)
+
+  for (let c = 0; c < shared; c++) {
+    if (inputWord[c] === targetWord[c]) allCorrect++
+    else incorrect++
+  }
+
+  return {
+    allCorrect,
+    incorrect,
+    extra: inputWord.length - shared,
+    missed: targetWord.length - shared,
+  }
+}
+
+/**
+ * Apply the outcome of a word whose input was shorter than its target.
+ * A partially typed final word (timed tests) still earns credit for its
+ * correct characters when there are no mistakes; otherwise it counts as
+ * missed characters. Non-final or mismatched words simply add their missed
+ * characters (zero when the input was not shorter).
+ */
+function addPartialWordOutcome(
+  counts: WpmCounts,
+  diff: CharDiff,
+  isLastWord: boolean,
+  shouldCountPartialLastWord: boolean
+) {
+  if (isLastWord && shouldCountPartialLastWord) {
+    if (diff.incorrect === 0) counts.correctWordChars += diff.allCorrect
+    return
+  }
+  counts.missedChars += diff.missed
+}
+
 export function countWpm({
   targetWords,
   wordInputs,
@@ -30,15 +81,17 @@ export function countWpm({
   /** Invariant: `wordInputs.length === wordIndex` (slice guards if briefly out of sync). */
   const inputWords = [...wordInputs.slice(0, wordIndex), typed]
 
-  let correctWordChars = 0
-  let allCorrectChars = 0
-  let incorrectChars = 0
-  let extraChars = 0
-  let missedChars = 0
-  let correctSpaces = 0
+  const counts: WpmCounts = {
+    correctWordChars: 0,
+    correctSpaces: 0,
+    allCorrectChars: 0,
+    incorrectChars: 0,
+    extraChars: 0,
+    missedChars: 0,
+  }
 
   const isTimedTest = mode === "time" || mode === "zen"
-  const shouldCountPartialLastWord = !final || (final && isTimedTest)
+  const shouldCountPartialLastWord = !final || isTimedTest
 
   for (let i = 0; i < inputWords.length; i++) {
     const inputWord = inputWords[i] as string
@@ -46,48 +99,27 @@ export function countWpm({
     if (targetWord === undefined) break
 
     if (inputWord === targetWord) {
-      correctWordChars += targetWord.length
-      allCorrectChars += targetWord.length
-      if (i < inputWords.length - 1 && !inputWord.endsWith("\n")) correctSpaces++
-    } else if (inputWord.length >= targetWord.length) {
-      for (let c = 0; c < inputWord.length; c++) {
-        if (c < targetWord.length) {
-          if (inputWord[c] === targetWord[c]) allCorrectChars++
-          else incorrectChars++
-        } else {
-          extraChars++
-        }
-      }
-    } else {
-      const toAdd = { correct: 0, incorrect: 0, missed: 0 }
-      for (let c = 0; c < targetWord.length; c++) {
-        if (c < inputWord.length) {
-          if (inputWord[c] === targetWord[c]) toAdd.correct++
-          else toAdd.incorrect++
-        } else {
-          toAdd.missed++
-        }
-      }
-      allCorrectChars += toAdd.correct
-      incorrectChars += toAdd.incorrect
-
-      if (i === inputWords.length - 1 && shouldCountPartialLastWord) {
-        if (toAdd.incorrect === 0) correctWordChars += toAdd.correct
-      } else {
-        missedChars += toAdd.missed
-      }
+      counts.correctWordChars += targetWord.length
+      counts.allCorrectChars += targetWord.length
+      if (i < inputWords.length - 1 && !inputWord.endsWith("\n"))
+        counts.correctSpaces++
+      continue
     }
 
+    const diff = diffChars(inputWord, targetWord)
+    counts.allCorrectChars += diff.allCorrect
+    counts.incorrectChars += diff.incorrect
+    counts.extraChars += diff.extra
+
+    addPartialWordOutcome(
+      counts,
+      diff,
+      i === inputWords.length - 1,
+      shouldCountPartialLastWord
+    )
   }
 
-  return {
-    correctWordChars,
-    correctSpaces,
-    allCorrectChars,
-    incorrectChars,
-    extraChars,
-    missedChars,
-  }
+  return counts
 }
 
 export function wpmNumeratorFromCounts(c: WpmCounts): number {

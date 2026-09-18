@@ -31,26 +31,39 @@ function parseThemeLabel(stem: string): string {
 }
 
 /**
+ * Return the body of the first `:root { ... }` block, or null.
+ * Uses indexOf scanning instead of a regex so backtracking is impossible.
+ */
+function extractRootBlock(css: string): string | null {
+  const start = css.indexOf(":root")
+  if (start === -1) return null
+  const open = css.indexOf("{", start)
+  if (open === -1) return null
+  const close = css.indexOf("}", open)
+  if (close === -1) return null
+  return css.slice(open + 1, close)
+}
+
+/**
  * Extract the value of --primary from the :root { } block of a CSS string.
  * Returns null if not found.
  */
 function extractPrimary(css: string): string | null {
-  const rootBlock = css.match(/:root\s*\{([^}]+)\}/)
-  if (!rootBlock) return null
-  const match = rootBlock[1].match(/--primary:\s*([^;]+);/)
-  return match ? match[1].trim() : null
+  return extractVar(css, "--primary")
 }
 
 /**
  * Extract a CSS custom property value from the :root { } block.
  */
 function extractVar(css: string, varName: string): string | null {
-  const rootBlock = css.match(/:root\s*\{([^}]+)\}/)
+  const rootBlock = extractRootBlock(css)
   if (!rootBlock) return null
-  const re = new RegExp(`${varName}:\\s*([^;]+);`)
-  const match = rootBlock[1].match(re)
-  if (!match) return null
-  const value = match[1].trim()
+  const declStart = rootBlock.indexOf(`${varName}:`)
+  if (declStart === -1) return null
+  const valueStart = declStart + varName.length + 1
+  const declEnd = rootBlock.indexOf(";", valueStart)
+  if (declEnd === -1) return null
+  const value = rootBlock.slice(valueStart, declEnd).trim()
   // Skip self-referential values like "var(--font-sans)" — these come from
   // the @theme inline block in the theme file and are not useful here
   if (value.startsWith("var(")) return null

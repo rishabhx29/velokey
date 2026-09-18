@@ -199,6 +199,28 @@ interface ResolvedSoundPack {
 const rawBufferCache = new Map<string, ArrayBuffer>()
 const rawConfigCache = new Map<string, unknown>()
 
+async function fetchSoundBuffer(url: string): Promise<ArrayBuffer | null> {
+  const cached = rawBufferCache.get(url)
+  if (cached) return cached
+  const res = await fetch(url)
+  const ab = res.ok ? await res.arrayBuffer() : null
+  if (ab) rawBufferCache.set(url, ab)
+  return ab
+}
+
+async function fetchSoundConfig(url: string): Promise<unknown | null> {
+  const cached = rawConfigCache.get(url)
+  if (cached !== undefined) return cached
+  try {
+    const res = await fetch(url)
+    const cfg = res.ok ? await res.json() : null
+    if (cfg) rawConfigCache.set(url, cfg)
+    return cfg
+  } catch {
+    return null
+  }
+}
+
 export function KeyboardProvider({
   children,
   containerRef,
@@ -240,25 +262,10 @@ export function KeyboardProvider({
         const audioContext = new AudioContext()
         audioContextRef.current = audioContext
 
-        const fetchRawBuffer = rawBufferCache.has(soundUrl)
-          ? Promise.resolve(rawBufferCache.get(soundUrl)!)
-          : fetch(soundUrl)
-              .then((r) => (r.ok ? r.arrayBuffer() : null))
-              .then((ab) => {
-                if (ab) rawBufferCache.set(soundUrl, ab)
-                return ab
-              })
+        const fetchRawBuffer = fetchSoundBuffer(soundUrl)
 
         const fetchConfig = soundConfigUrl
-          ? rawConfigCache.has(soundConfigUrl)
-            ? Promise.resolve(rawConfigCache.get(soundConfigUrl))
-            : fetch(soundConfigUrl)
-                .then((r) => (r.ok ? r.json() : null))
-                .then((cfg) => {
-                  if (cfg) rawConfigCache.set(soundConfigUrl, cfg)
-                  return cfg
-                })
-                .catch(() => null)
+          ? fetchSoundConfig(soundConfigUrl)
           : Promise.resolve(null)
 
         const spriteBufferPromise = fetchRawBuffer.then((ab) =>

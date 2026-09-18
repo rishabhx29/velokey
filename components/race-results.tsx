@@ -17,6 +17,41 @@ interface RaceResultsProps {
   connection: UseRaceConnectionReturn
 }
 
+const PLACEMENT_MESSAGES: Record<number, string> = {
+  1: "You won! Incredible typing speed.",
+  2: "So close! 2nd place.",
+  3: "Podium finish! 3rd place.",
+}
+
+function PlacementBadge({ placement }: { placement: number }) {
+  if (placement === 1) {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/20 text-amber-500">
+        <IconTrophy size={16} />
+      </div>
+    )
+  }
+  if (placement === 2) {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300/30 bg-slate-300/20 text-slate-400">
+        <IconMedal size={16} />
+      </div>
+    )
+  }
+  if (placement === 3) {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-700/30 bg-amber-700/20 text-amber-700">
+        <IconMedal size={16} />
+      </div>
+    )
+  }
+  return (
+    <span className="font-mono font-bold text-muted-foreground/60">
+      {placement}
+    </span>
+  )
+}
+
 export function RaceResults({ connection }: RaceResultsProps) {
   const router = useRouter()
   const { leaderboard, myPlayerId, isHost, rematch, disconnect, roomConfig } =
@@ -62,13 +97,8 @@ export function RaceResults({ connection }: RaceResultsProps) {
         </div>
         <h1 className="text-4xl font-bold tracking-tight">Race Complete</h1>
         <p className="mt-1 font-medium text-muted-foreground">
-          {myEntry?.placement === 1
-            ? "You won! Incredible typing speed."
-            : myEntry?.placement === 2
-              ? "So close! 2nd place."
-              : myEntry?.placement === 3
-                ? "Podium finish! 3rd place."
-                : "Good effort! Keep practicing."}
+          {(myEntry && PLACEMENT_MESSAGES[myEntry.placement]) ||
+            "Good effort! Keep practicing."}
         </p>
       </div>
 
@@ -109,23 +139,7 @@ export function RaceResults({ connection }: RaceResultsProps) {
               >
                 {/* Placement Badge */}
                 <div className="flex justify-center">
-                  {entry.placement === 1 ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/20 text-amber-500">
-                      <IconTrophy size={16} />
-                    </div>
-                  ) : entry.placement === 2 ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300/30 bg-slate-300/20 text-slate-400">
-                      <IconMedal size={16} />
-                    </div>
-                  ) : entry.placement === 3 ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-700/30 bg-amber-700/20 text-amber-700">
-                      <IconMedal size={16} />
-                    </div>
-                  ) : (
-                    <span className="font-mono font-bold text-muted-foreground/60">
-                      {entry.placement}
-                    </span>
-                  )}
+                  <PlacementBadge placement={entry.placement} />
                 </div>
 
                 {/* Player Identity */}

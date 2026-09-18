@@ -4,11 +4,6 @@
 
 import type { RaceProgress, RoomConfig } from "@/shared/race-protocol"
 
-export interface RaceProgressContext {
-  config: RoomConfig
-  progress: RaceProgress[]
-}
-
 /** The denominator for a player's progress bar. */
 export function getProgressTarget(
   config: RoomConfig,

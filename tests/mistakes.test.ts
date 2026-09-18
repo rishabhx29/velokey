@@ -67,7 +67,7 @@ describe("recordTestMistakes", () => {
 
   it("records a mastery snapshot", () => {
     recordTestMistakes(["hello"], ["helo"], [500], "words")
-    expect(getMistakeHistory().length).toBe(1)
+    expect(getMistakeHistory()).toHaveLength(1)
   })
 })
 

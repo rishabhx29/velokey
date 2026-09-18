@@ -1,11 +1,10 @@
 import type { ResultStats } from "@/components/results-screen"
 import {
   validateResultStats,
-  type InvalidReason,
   type ValidationResult,
 } from "@/shared/result-validation"
 
-export type { InvalidReason, ValidationResult }
+export type { ValidationResult }
 
 /**
  * Returns `{ valid: true }` for a legitimate result or

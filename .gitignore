@@ -12,6 +12,7 @@
 /coverage
 /playwright-report
 /test-results
+/recordings
 /storybook-static
 /lighthouse-report.html
 /.partykit/
@@ -23,7 +24,6 @@
 # production
 /build
 
-# misc
 .DS_Store
 *.pem
 

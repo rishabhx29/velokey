@@ -129,6 +129,14 @@ export default function Page() {
 
   const showFooter = !isFinished && showKeyboard
 
+  let mainLayoutClass = "flex-1 items-center"
+  if (isFinished) {
+    mainLayoutClass = "flex-1 justify-center px-10 py-2"
+  } else if (showFooter) {
+    mainLayoutClass =
+      "flex-1 items-center justify-center lg:justify-end lg:pb-8"
+  }
+
   return (
     <>
       {/* Full-screen settings-hydration loader */}
@@ -162,14 +170,7 @@ export default function Page() {
           <div className="h-[550px] w-[900px] rounded-full bg-gradient-to-tr from-primary/10 via-primary/5 to-transparent opacity-75 blur-3xl transition-opacity duration-1000" />
         </div>
         <main
-          className={cn(
-            "relative z-10 flex flex-col px-6",
-            isFinished
-              ? "flex-1 justify-center px-10 py-2"
-              : showFooter
-                ? "flex-1 items-center justify-center lg:justify-end lg:pb-8"
-                : "flex-1 items-center"
-          )}
+          className={cn("relative z-10 flex flex-col px-6", mainLayoutClass)}
         >
           <TypingTest
             key={restartKey}

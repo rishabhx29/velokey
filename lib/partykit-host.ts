@@ -11,14 +11,18 @@ const RAW_PARTYKIT_HOST: string =
  * handshake. Pin the loopback name to IPv4 for local development; remote
  * hosts pass through untouched.
  */
-export const PARTYKIT_HOST: string = /^localhost(:|$)/.test(RAW_PARTYKIT_HOST)
-  ? RAW_PARTYKIT_HOST.replace(/^localhost/, "127.0.0.1")
-  : RAW_PARTYKIT_HOST
+export const PARTYKIT_HOST: string =
+  RAW_PARTYKIT_HOST === "localhost" ||
+  RAW_PARTYKIT_HOST.startsWith("localhost:")
+    ? RAW_PARTYKIT_HOST.replace(/^localhost/, "127.0.0.1")
+    : RAW_PARTYKIT_HOST
 
 /** URL of the HTTP API for a specific race room. */
 export function partyRoomUrl(roomCode: string): string {
-  if (/^https?:\/\//.test(PARTYKIT_HOST)) {
-    return `${PARTYKIT_HOST.replace(/\/+$/, "")}/parties/main/${roomCode}`
+  const isAbsoluteUrl =
+    PARTYKIT_HOST.startsWith("http://") || PARTYKIT_HOST.startsWith("https://")
+  if (isAbsoluteUrl) {
+    return `${trimTrailingSlashes(PARTYKIT_HOST)}/parties/main/${roomCode}`
   }
   const protocol =
     PARTYKIT_HOST.startsWith("127.0.0.1") ||
@@ -26,4 +30,10 @@ export function partyRoomUrl(roomCode: string): string {
       ? "http"
       : "https"
   return `${protocol}://${PARTYKIT_HOST}/parties/main/${roomCode}`
+}
+
+function trimTrailingSlashes(value: string): string {
+  let end = value.length
+  while (end > 0 && value[end - 1] === "/") end -= 1
+  return value.slice(0, end)
 }

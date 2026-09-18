@@ -32,19 +32,23 @@ export function CustomTimeDialog({
   const MAX_SECONDS = 3600
 
   // Parse "90", "1h30m", "2h", "45m" → seconds. Returns null for invalid input.
+  // Alternation is anchored once; each branch is a single linear pass.
   function parseDuration(trimmed: string): number | null {
     if (trimmed.length === 0) return null
     if (/^\d+$/.test(trimmed)) {
       const n = parseInt(trimmed, 10)
       return Number.isFinite(n) ? n : null
     }
-    if (/^\d+h(\d+m)?$|^\d+m$/.test(trimmed)) {
-      const hMatch = trimmed.match(/(\d+)h/)
-      const mMatch = trimmed.match(/(\d+)m/)
-      let seconds = 0
-      if (hMatch) seconds += parseInt(hMatch[1], 10) * 3600
-      if (mMatch) seconds += parseInt(mMatch[1], 10) * 60
-      return seconds
+    const compound = /^(?:(\d+)h(?:(\d+)m)?|(\d+)m)$/.exec(trimmed)
+    if (compound) {
+      let minutes = 0
+      if (compound[2]) {
+        minutes = parseInt(compound[2], 10)
+      } else if (compound[3]) {
+        minutes = parseInt(compound[3], 10)
+      }
+      const hours = compound[1] ? parseInt(compound[1], 10) : 0
+      return hours * 3600 + minutes * 60
     }
     return null
   }
@@ -69,20 +73,17 @@ export function CustomTimeDialog({
   })()
 
   // Determine subtext based on current value
-  let subtext = ""
-  if (value.trim() === "") {
-    subtext = ""
-  } else if (invalid) {
-    subtext = "enter 1–3600 seconds (e.g. 90, 1h30m, 45m)"
-  } else {
-    const seconds = parseDuration(value.trim())!
-    if (seconds === 1) subtext = "1 second"
-    else if (seconds % 3600 === 0 && seconds >= 3600)
-      subtext = `${seconds / 3600} hour${seconds > 3600 ? "s" : ""}`
-    else if (seconds % 60 === 0 && seconds >= 60)
-      subtext = `${seconds / 60} minute${seconds > 60 ? "s" : ""}`
-    else subtext = `${seconds} seconds`
-  }
+  const subtext = (() => {
+    if (value.trim() === "") return ""
+    if (invalid) return "enter 1–3600 seconds (e.g. 90, 1h30m, 45m)"
+    const seconds = parseDuration(value.trim()) ?? 0
+    if (seconds === 1) return "1 second"
+    if (seconds % 3600 === 0 && seconds >= 3600)
+      return `${seconds / 3600} hour${seconds > 3600 ? "s" : ""}`
+    if (seconds % 60 === 0 && seconds >= 60)
+      return `${seconds / 60} minute${seconds > 60 ? "s" : ""}`
+    return `${seconds} seconds`
+  })()
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

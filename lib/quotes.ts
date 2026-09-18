@@ -1,4 +1,5 @@
 import rawQuotes from "@/data/quotes.json"
+import { randomPick } from "@/lib/secure-random"
 
 export type QuoteLength = "short" | "medium" | "long"
 
@@ -18,7 +19,7 @@ const ALL_QUOTES = (rawQuotes as RawQuote[]).filter(
 )
 
 function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+  return randomPick(arr)
 }
 
 export function getQuote(length: QuoteLength): {

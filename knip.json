@@ -24,7 +24,14 @@
     "tailwindcss",
     "tw-animate-css",
     "shadcn",
-    "inspirational-quotes"
+    "inspirational-quotes",
+    "browserslist",
+    "dompurify",
+    "miniflare"
   ],
-  "ignore": ["components/ui/**", "components/animate-ui/**"]
+  "ignore": [
+    "components/ui/**",
+    "components/animate-ui/**",
+    "components/kibo-ui/**"
+  ]
 }

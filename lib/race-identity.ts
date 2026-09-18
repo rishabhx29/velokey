@@ -2,6 +2,9 @@
 // Manages player identity (nickname, color, session ID) via localStorage.
 // No login required — identity is ephemeral and fun.
 
+import { PLAYER_COLORS, MAX_NICKNAME_LENGTH } from "@/shared/race-protocol"
+import { randomPick } from "@/lib/secure-random"
+
 const NICKNAME_KEY = "velokey-race-nickname"
 const COLOR_KEY = "velokey-race-color"
 const SESSION_KEY = "velokey-race-session"
@@ -9,25 +12,93 @@ const SESSION_KEY = "velokey-race-session"
 // ── Nickname Generation ──────────────────────────────────────────────────────
 
 const ADJECTIVES = [
-  "Swift", "Neon", "Turbo", "Cosmic", "Silent", "Hyper", "Blazing", "Frost",
-  "Crimson", "Shadow", "Midnight", "Thunder", "Stealth", "Phantom", "Atomic",
-  "Velvet", "Rogue", "Amber", "Onyx", "Lunar", "Pixel", "Chrome", "Quantum",
-  "Mystic", "Storm", "Rapid", "Flash", "Zenith", "Viper", "Arctic",
-  "Ember", "Cobalt", "Cipher", "Nova", "Prism", "Echo", "Bolt", "Drift",
-  "Glitch", "Orbit",
+  "Swift",
+  "Neon",
+  "Turbo",
+  "Cosmic",
+  "Silent",
+  "Hyper",
+  "Blazing",
+  "Frost",
+  "Crimson",
+  "Shadow",
+  "Midnight",
+  "Thunder",
+  "Stealth",
+  "Phantom",
+  "Atomic",
+  "Velvet",
+  "Rogue",
+  "Amber",
+  "Onyx",
+  "Lunar",
+  "Pixel",
+  "Chrome",
+  "Quantum",
+  "Mystic",
+  "Storm",
+  "Rapid",
+  "Flash",
+  "Zenith",
+  "Viper",
+  "Arctic",
+  "Ember",
+  "Cobalt",
+  "Cipher",
+  "Nova",
+  "Prism",
+  "Echo",
+  "Bolt",
+  "Drift",
+  "Glitch",
+  "Orbit",
 ]
 
 const ANIMALS = [
-  "Panda", "Fox", "Wolf", "Hawk", "Lynx", "Tiger", "Falcon", "Otter",
-  "Raven", "Viper", "Jaguar", "Eagle", "Cobra", "Phoenix", "Dragon",
-  "Panther", "Bear", "Shark", "Mantis", "Owl", "Crane", "Gecko",
-  "Heron", "Badger", "Puma", "Osprey", "Ferret", "Ibis", "Jackal",
-  "Mako", "Toucan", "Wren", "Kite", "Newt", "Finch", "Marten",
-  "Shrike", "Grouse", "Starling", "Sparrow",
+  "Panda",
+  "Fox",
+  "Wolf",
+  "Hawk",
+  "Lynx",
+  "Tiger",
+  "Falcon",
+  "Otter",
+  "Raven",
+  "Viper",
+  "Jaguar",
+  "Eagle",
+  "Cobra",
+  "Phoenix",
+  "Dragon",
+  "Panther",
+  "Bear",
+  "Shark",
+  "Mantis",
+  "Owl",
+  "Crane",
+  "Gecko",
+  "Heron",
+  "Badger",
+  "Puma",
+  "Osprey",
+  "Ferret",
+  "Ibis",
+  "Jackal",
+  "Mako",
+  "Toucan",
+  "Wren",
+  "Kite",
+  "Newt",
+  "Finch",
+  "Marten",
+  "Shrike",
+  "Grouse",
+  "Starling",
+  "Sparrow",
 ]
 
 function randomFrom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+  return randomPick(arr)
 }
 
 function generateNickname(): string {
@@ -35,32 +106,25 @@ function generateNickname(): string {
 }
 
 // ── Player Colors ────────────────────────────────────────────────────────────
-// Curated palette — high contrast on both light and dark backgrounds.
-
-export const PLAYER_COLORS = [
-  "#22d3ee", // cyan
-  "#f472b6", // pink
-  "#a78bfa", // violet
-  "#fb923c", // orange
-  "#4ade80", // green
-  "#f87171", // red
-  "#facc15", // yellow
-  "#60a5fa", // blue
-] as const
+// Palette lives in shared/race-protocol.ts alongside the sanitizers.
 
 function randomColor(): string {
-  return PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]
+  return randomPick(PLAYER_COLORS)
 }
 
 // ── Session ID ───────────────────────────────────────────────────────────────
 
 function generateSessionId(): string {
-  // Prefer crypto.randomUUID if available, otherwise fallback
+  // Session IDs are unpredictable so one client cannot impersonate another.
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID()
   }
-  // Fallback: simple random string
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(16)
+    crypto.getRandomValues(bytes)
+    return Array.from(bytes, (b) => b.toString(36)).join("")
+  }
+  throw new Error("WebCrypto unavailable: cannot generate a secure session ID")
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -76,7 +140,7 @@ export function getOrCreateNickname(): string {
 
 export function setNickname(nickname: string): void {
   if (typeof window === "undefined") return
-  const trimmed = nickname.trim().slice(0, 20)
+  const trimmed = nickname.trim().slice(0, MAX_NICKNAME_LENGTH)
   if (trimmed.length > 0) {
     localStorage.setItem(NICKNAME_KEY, trimmed)
   }

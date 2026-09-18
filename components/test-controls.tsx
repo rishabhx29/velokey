@@ -37,7 +37,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/animate-ui/components/animate/tabs"
-import type { TestMode, TimeOption, WordOption } from "@/lib/test-storage"
+import type { TestMode } from "@/lib/test-storage"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -53,10 +53,27 @@ export type CodeManifest = Record<
   { code: string; name: string; ext: string; chapters: string[] }
 >
 
+const OPTIONS_LABELS: Partial<Record<TestMode, string>> = {
+  words: "Word Count",
+  brainrot: "Word Count",
+  quote: "Quote Length",
+  custom: "Custom Text",
+  code: "Language / Chapter",
+  time: "Time (s)",
+  zen: "Time (s)",
+}
+
+const UNAVAILABLE_TIPS: Partial<Record<TestMode, string>> = {
+  quote: "Not available in quote mode",
+  code: "Not available in code mode",
+  brainrot: "Not available in brain rot mode",
+  custom: "Not available in custom mode",
+}
+
 export interface TestControlsProps {
   mode: TestMode
-  timeOption: TimeOption
-  wordOption: WordOption
+  timeOption: number
+  wordOption: number
   quoteLength: QuoteLength
   punctuation: boolean
   numbers: boolean
@@ -67,8 +84,8 @@ export interface TestControlsProps {
   codeManifest: CodeManifest
   controlsVisible: boolean
   onModeChange: (next: TestMode) => void
-  onTimeOptionChange: (next: TimeOption) => void
-  onWordOptionChange: (next: WordOption) => void
+  onTimeOptionChange: (next: number) => void
+  onWordOptionChange: (next: number) => void
   onQuoteLengthChange: (next: QuoteLength) => void
   onPunctuationToggle: () => void
   onNumbersToggle: () => void
@@ -113,6 +130,16 @@ export const TestControls = memo(function TestControls({
   const [langSearch, setLangSearch] = useState("")
   const [wordPopoverOpen, setWordPopoverOpen] = useState(false)
   const { setTestSettingsOpen } = useAppChrome()
+
+  const optionsLabel = OPTIONS_LABELS[mode] ?? "Time (s)"
+
+  const codeLanguageLabel = () => {
+    if (Object.keys(codeManifest).length === 0) return "Loading..."
+    if (codeLanguage && codeManifest[codeLanguage]) {
+      return codeManifest[codeLanguage].name
+    }
+    return "Language"
+  }
 
   const setDrawerOpen = (open: boolean) => {
     setDrawerOpenState(open)
@@ -162,11 +189,7 @@ export const TestControls = memo(function TestControls({
             className={codeSelectTriggerClass}
             data-state={codeLanguage ? "active" : "inactive"}
           >
-            {Object.keys(codeManifest).length === 0
-              ? "Loading..."
-              : codeLanguage && codeManifest[codeLanguage]
-                ? codeManifest[codeLanguage].name
-                : "Language"}
+            {codeLanguageLabel()}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -301,271 +324,281 @@ export const TestControls = memo(function TestControls({
           {/* Options group */}
           <div className="flex flex-col gap-2">
             <span className="text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
-              {mode === "words" || mode === "brainrot"
-                ? "Word Count"
-                : mode === "quote"
-                  ? "Quote Length"
-                  : mode === "custom"
-                    ? "Custom Text"
-                    : mode === "code"
-                      ? "Language / Chapter"
-                      : "Time (s)"}
+              {optionsLabel}
             </span>
-            {mode === "words" || mode === "brainrot" ? (
-              <div className="grid grid-cols-5 gap-2">
-                {[10, 25, 50, 100].map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={() => onWordOptionChange(w)}
-                    className={drawerBtnClass(wordOption === w)}
-                  >
-                    <span className="text-base font-semibold">{w}</span>
-                  </button>
-                ))}
-                <Popover
-                  open={wordPopoverOpen}
-                  onOpenChange={setWordPopoverOpen}
-                >
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className={drawerBtnClass(
-                        ![10, 25, 50, 100].includes(wordOption)
-                      )}
-                    >
-                      <IconTool size={18} />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-40 p-2"
-                    side="top"
-                    align="center"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                        Custom Words
-                      </span>
-                      <input
-                        type="number"
-                        placeholder="e.g. 500"
-                        defaultValue={wordOption}
-                        onKeyDown={(e) => {
-                          e.stopPropagation()
-                          if (e.key === "Enter") {
-                            const val = parseInt(e.currentTarget.value)
-                            if (val > 0) {
-                              onWordOptionChange(val)
-                              setWordPopoverOpen(false)
-                            }
-                          }
-                        }}
-                        className="w-full rounded bg-muted px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            ) : mode === "quote" ? (
-              <div className="grid grid-cols-3 gap-2">
-                {(["short", "medium", "long"] as QuoteLength[]).map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => onQuoteLengthChange(q)}
-                    className={drawerBtnClass(quoteLength === q)}
-                  >
-                    <span className="text-base font-semibold">{q}</span>
-                  </button>
-                ))}
-              </div>
-            ) : mode === "custom" ? (
-              <CustomTextDialog
-                value={customText}
-                onSave={onCustomTextChange}
-                codeManifest={codeManifest}
-                trigger={
-                  <button
-                    type="button"
-                    className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-zinc-100 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground dark:bg-zinc-800"
-                  >
-                    <IconPencil size={15} />
-                    change text
-                  </button>
-                }
-              />
-            ) : mode === "code" ? (
-              <div className="grid grid-cols-2 items-start gap-2">
-                <div className="relative flex w-full flex-col gap-2">
-                  {/* Language picker — inline accordion (Popover portals are intercepted by vaul on mobile) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLangPickerOpen((v) => !v)
-                      setLangSearch("")
-                    }}
-                    className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-zinc-100 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground dark:bg-zinc-800"
-                  >
-                    <span className="truncate">
-                      {codeLanguage && codeManifest[codeLanguage]
-                        ? codeManifest[codeLanguage].name
-                        : "Select language"}
-                    </span>
-                    <CaretDownIcon
-                      className={cn(
-                        "size-4 shrink-0 transition-transform duration-200",
-                        langPickerOpen && "rotate-180"
-                      )}
-                      weight="bold"
-                    />
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {langPickerOpen && (
-                      <motion.div
-                        key="lang-accordion"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeInOut" }}
-                        className="absolute top-[calc(100%+4px)] left-0 z-50 flex max-h-40 w-full flex-col overflow-hidden rounded-lg border border-border bg-zinc-100 shadow-xl md:max-h-56 dark:bg-zinc-800"
+            {(() => {
+              if (mode === "words" || mode === "brainrot") {
+                return (
+                  <div className="grid grid-cols-5 gap-2">
+                    {[10, 25, 50, 100].map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => onWordOptionChange(w)}
+                        className={drawerBtnClass(wordOption === w)}
                       >
-                        <div className="shrink-0 border-b border-border px-2 py-1.5">
+                        <span className="text-base font-semibold">{w}</span>
+                      </button>
+                    ))}
+                    <Popover
+                      open={wordPopoverOpen}
+                      onOpenChange={setWordPopoverOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className={drawerBtnClass(
+                            ![10, 25, 50, 100].includes(wordOption)
+                          )}
+                        >
+                          <IconTool size={18} />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-40 p-2"
+                        side="top"
+                        align="center"
+                      >
+                        <div className="flex flex-col gap-2">
+                          <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                            Custom Words
+                          </span>
                           <input
-                            type="text"
-                            placeholder="Search language..."
-                            value={langSearch}
-                            onChange={(e) => setLangSearch(e.target.value)}
-                            className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
-                            autoFocus={false}
+                            type="number"
+                            placeholder="e.g. 500"
+                            defaultValue={wordOption}
+                            onKeyDown={(e) => {
+                              e.stopPropagation()
+                              if (e.key === "Enter") {
+                                const val = parseInt(e.currentTarget.value)
+                                if (val > 0) {
+                                  onWordOptionChange(val)
+                                  setWordPopoverOpen(false)
+                                }
+                              }
+                            }}
+                            className="w-full rounded bg-muted px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
                           />
                         </div>
-                        <div className="custom-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
-                          {(() => {
-                            const filtered = Object.values(codeManifest).filter(
-                              (lang) =>
-                                !langSearch ||
-                                lang.name
-                                  .toLowerCase()
-                                  .includes(langSearch.toLowerCase()) ||
-                                lang.ext
-                                  .toLowerCase()
-                                  .includes(langSearch.toLowerCase()) ||
-                                lang.code
-                                  .toLowerCase()
-                                  .includes(langSearch.toLowerCase())
-                            )
-                            return filtered.length > 0 ? (
-                              filtered.map((lang) => (
-                                <button
-                                  type="button"
-                                  key={lang.code}
-                                  onClick={() => {
-                                    onCodeLanguageChange(lang.code)
-                                    setLangPickerOpen(false)
-                                    setLangSearch("")
-                                  }}
-                                  className={renderDropdownOptionClass(
-                                    codeLanguage === lang.code
-                                  )}
-                                >
-                                  {lang.name}
-                                </button>
-                              ))
-                            ) : (
-                              <p className="py-3 text-center text-xs text-muted-foreground">
-                                No results
-                              </p>
-                            )
-                          })()}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )
+              }
+              if (mode === "quote") {
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["short", "medium", "long"] as QuoteLength[]).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => onQuoteLengthChange(q)}
+                        className={drawerBtnClass(quoteLength === q)}
+                      >
+                        <span className="text-base font-semibold">{q}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+              if (mode === "custom") {
+                return (
+                  <CustomTextDialog
+                    value={customText}
+                    onSave={onCustomTextChange}
+                    codeManifest={codeManifest}
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-zinc-100 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground dark:bg-zinc-800"
+                      >
+                        <IconPencil size={15} />
+                        change text
+                      </button>
+                    }
+                  />
+                )
+              }
+              if (mode === "code") {
+                return (
+                  <div className="grid grid-cols-2 items-start gap-2">
+                    <div className="relative flex w-full flex-col gap-2">
+                      {/* Language picker — inline accordion (Popover portals are intercepted by vaul on mobile) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLangPickerOpen((v) => !v)
+                          setLangSearch("")
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-zinc-100 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground dark:bg-zinc-800"
+                      >
+                        <span className="truncate">
+                          {codeLanguage && codeManifest[codeLanguage]
+                            ? codeManifest[codeLanguage].name
+                            : "Select language"}
+                        </span>
+                        <CaretDownIcon
+                          className={cn(
+                            "size-4 shrink-0 transition-transform duration-200",
+                            langPickerOpen && "rotate-180"
+                          )}
+                          weight="bold"
+                        />
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {langPickerOpen && (
+                          <motion.div
+                            key="lang-accordion"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                            className="absolute top-[calc(100%+4px)] left-0 z-50 flex max-h-40 w-full flex-col overflow-hidden rounded-lg border border-border bg-zinc-100 shadow-xl md:max-h-56 dark:bg-zinc-800"
+                          >
+                            <div className="shrink-0 border-b border-border px-2 py-1.5">
+                              <input
+                                type="text"
+                                placeholder="Search language..."
+                                value={langSearch}
+                                onChange={(e) => setLangSearch(e.target.value)}
+                                className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
+                                autoFocus={false}
+                              />
+                            </div>
+                            <div className="custom-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
+                              {(() => {
+                                const filtered = Object.values(
+                                  codeManifest
+                                ).filter(
+                                  (lang) =>
+                                    !langSearch ||
+                                    lang.name
+                                      .toLowerCase()
+                                      .includes(langSearch.toLowerCase()) ||
+                                    lang.ext
+                                      .toLowerCase()
+                                      .includes(langSearch.toLowerCase()) ||
+                                    lang.code
+                                      .toLowerCase()
+                                      .includes(langSearch.toLowerCase())
+                                )
+                                return filtered.length > 0 ? (
+                                  filtered.map((lang) => (
+                                    <button
+                                      type="button"
+                                      key={lang.code}
+                                      onClick={() => {
+                                        onCodeLanguageChange(lang.code)
+                                        setLangPickerOpen(false)
+                                        setLangSearch("")
+                                      }}
+                                      className={renderDropdownOptionClass(
+                                        codeLanguage === lang.code
+                                      )}
+                                    >
+                                      {lang.name}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <p className="py-3 text-center text-xs text-muted-foreground">
+                                    No results
+                                  </p>
+                                )
+                              })()}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
-                <div className="relative flex w-full flex-col gap-2">
-                  {/* Chapter picker — inline accordion */}
-                  <button
-                    type="button"
-                    disabled={!codeLanguage || !codeManifest[codeLanguage]}
-                    onClick={() => setChapterPickerOpen((v) => !v)}
-                    className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-zinc-100 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800"
-                  >
-                    <span className="truncate">
-                      {codeChapter
-                        ? codeChapter.replace(/_/g, " ")
-                        : "Select chapter"}
-                    </span>
-                    <CaretDownIcon
-                      className={cn(
-                        "size-4 shrink-0 transition-transform duration-200",
-                        chapterPickerOpen && "rotate-180"
-                      )}
-                      weight="bold"
-                    />
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {chapterPickerOpen &&
-                      codeLanguage &&
-                      codeManifest[codeLanguage] && (
-                        <motion.div
-                          key="chapter-accordion"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: "easeInOut" }}
-                          className="absolute top-[calc(100%+4px)] left-0 z-50 flex max-h-40 w-full flex-col overflow-hidden rounded-lg border border-border bg-zinc-100 shadow-xl md:max-h-56 dark:bg-zinc-800"
-                        >
-                          <div className="custom-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
-                            {codeManifest[codeLanguage].chapters.map((chap) => (
-                              <button
-                                type="button"
-                                key={chap}
-                                onClick={() => {
-                                  onCodeChapterChange(chap)
-                                  setChapterPickerOpen(false)
-                                }}
-                                className={renderDropdownOptionClass(
-                                  codeChapter === chap
+                    <div className="relative flex w-full flex-col gap-2">
+                      {/* Chapter picker — inline accordion */}
+                      <button
+                        type="button"
+                        disabled={!codeLanguage || !codeManifest[codeLanguage]}
+                        onClick={() => setChapterPickerOpen((v) => !v)}
+                        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-zinc-100 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800"
+                      >
+                        <span className="truncate">
+                          {codeChapter
+                            ? codeChapter.replace(/_/g, " ")
+                            : "Select chapter"}
+                        </span>
+                        <CaretDownIcon
+                          className={cn(
+                            "size-4 shrink-0 transition-transform duration-200",
+                            chapterPickerOpen && "rotate-180"
+                          )}
+                          weight="bold"
+                        />
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {chapterPickerOpen &&
+                          codeLanguage &&
+                          codeManifest[codeLanguage] && (
+                            <motion.div
+                              key="chapter-accordion"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2, ease: "easeInOut" }}
+                              className="absolute top-[calc(100%+4px)] left-0 z-50 flex max-h-40 w-full flex-col overflow-hidden rounded-lg border border-border bg-zinc-100 shadow-xl md:max-h-56 dark:bg-zinc-800"
+                            >
+                              <div className="custom-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto p-1.5">
+                                {codeManifest[codeLanguage].chapters.map(
+                                  (chap) => (
+                                    <button
+                                      type="button"
+                                      key={chap}
+                                      onClick={() => {
+                                        onCodeChapterChange(chap)
+                                        setChapterPickerOpen(false)
+                                      }}
+                                      className={renderDropdownOptionClass(
+                                        codeChapter === chap
+                                      )}
+                                    >
+                                      {chap.replace(/_/g, " ")}
+                                    </button>
+                                  )
                                 )}
-                              >
-                                {chap.replace(/_/g, " ")}
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-5 gap-2">
-                {[15, 30, 60, 120].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => onTimeOptionChange(t)}
-                    className={drawerBtnClass(timeOption === t)}
-                  >
-                    <span className="text-base font-semibold">{t}</span>
-                  </button>
-                ))}
-                <CustomTimeDialog
-                  timeOption={timeOption}
-                  onSave={onTimeOptionChange}
-                  trigger={
+                              </div>
+                            </motion.div>
+                          )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div className="grid grid-cols-5 gap-2">
+                  {[15, 30, 60, 120].map((t) => (
                     <button
+                      key={t}
                       type="button"
-                      className={drawerBtnClass(
-                        ![15, 30, 60, 120].includes(timeOption)
-                      )}
+                      onClick={() => onTimeOptionChange(t)}
+                      className={drawerBtnClass(timeOption === t)}
                     >
-                      <IconTool size={18} />
+                      <span className="text-base font-semibold">{t}</span>
                     </button>
-                  }
-                />
-              </div>
-            )}
+                  ))}
+                  <CustomTimeDialog
+                    timeOption={timeOption}
+                    onSave={onTimeOptionChange}
+                    trigger={
+                      <button
+                        type="button"
+                        className={drawerBtnClass(
+                          ![15, 30, 60, 120].includes(timeOption)
+                        )}
+                      >
+                        <IconTool size={18} />
+                      </button>
+                    }
+                  />
+                </div>
+              )
+            })()}
           </div>
         </>
       )}
@@ -579,14 +612,7 @@ export const TestControls = memo(function TestControls({
           mode === "code" ||
           mode === "custom" ||
           mode === "brainrot"
-        const tip =
-          mode === "quote"
-            ? "Not available in quote mode"
-            : mode === "code"
-              ? "Not available in code mode"
-              : mode === "brainrot"
-                ? "Not available in brain rot mode"
-                : "Not available in custom mode"
+        const tip = UNAVAILABLE_TIPS[mode] ?? ""
         return (
           <TooltipProvider delayDuration={200}>
             <>
@@ -718,16 +744,7 @@ export const TestControls = memo(function TestControls({
               mode === "code" ||
               mode === "custom" ||
               mode === "brainrot"
-            const tip =
-              mode === "quote"
-                ? "Not available in quote mode"
-                : mode === "code"
-                  ? "Not available in code mode"
-                  : mode === "brainrot"
-                    ? "Not available in brain rot mode"
-                    : mode === "custom"
-                      ? "Not available in custom mode"
-                      : ""
+            const tip = UNAVAILABLE_TIPS[mode] ?? ""
             return (
               <>
                 <TooltipProvider delayDuration={200}>
@@ -860,156 +877,172 @@ export const TestControls = memo(function TestControls({
             <>
               <div className="hidden h-4 w-px shrink-0 bg-border sm:block" />
 
-              {mode === "words" || mode === "brainrot" ? (
-                <Tabs
-                  value={
-                    ![10, 25, 50, 100].includes(wordOption)
-                      ? "custom"
-                      : String(wordOption)
-                  }
-                  onValueChange={(v) => {
-                    if (v !== "custom") onWordOptionChange(Number(v))
-                  }}
-                  className="flex items-center"
-                >
-                  <TabsList>
-                    {[10, 25, 50, 100].map((w) => (
-                      <TabsTrigger
-                        key={w}
-                        value={String(w)}
-                        className="cursor-pointer px-3 text-xs"
-                      >
-                        {w}
-                      </TabsTrigger>
-                    ))}
-                    <Popover
-                      open={wordPopoverOpen}
-                      onOpenChange={setWordPopoverOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <TabsTrigger
-                          value="custom"
-                          className="cursor-pointer px-3 text-xs"
-                        >
-                          <IconTool
-                            size={13}
-                            className={cn(
-                              ![10, 25, 50, 100].includes(wordOption) &&
-                                "text-primary"
-                            )}
-                          />
-                        </TabsTrigger>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-40 p-2"
-                        sideOffset={12}
-                        align="center"
-                      >
-                        <div className="flex flex-col gap-2">
-                          <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                            Custom Words
-                          </span>
-                          <input
-                            type="number"
-                            placeholder="e.g. 500"
-                            defaultValue={wordOption}
-                            onKeyDown={(e) => {
-                              e.stopPropagation()
-                              if (e.key === "Enter") {
-                                const val = parseInt(e.currentTarget.value)
-                                if (val > 0) {
-                                  onWordOptionChange(val)
-                                  setWordPopoverOpen(false)
-                                }
-                              }
-                            }}
-                            className="w-full rounded bg-muted px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                          />
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </TabsList>
-                </Tabs>
-              ) : mode === "quote" ? (
-                <Tabs
-                  value={quoteLength}
-                  onValueChange={(v) => onQuoteLengthChange(v as QuoteLength)}
-                  className="flex items-center"
-                >
-                  <TabsList>
-                    {(["short", "medium", "long"] as QuoteLength[]).map((q) => (
-                      <TabsTrigger
-                        key={q}
-                        value={q}
-                        className="cursor-pointer px-3 text-xs"
-                      >
-                        {q}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              ) : mode === "custom" ? (
-                <div className="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-[3px]">
-                  <CustomTextDialog
-                    value={customText}
-                    onSave={onCustomTextChange}
-                    codeManifest={codeManifest}
-                    trigger={
-                      <button
-                        type="button"
-                        className="flex h-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors focus-visible:outline-none dark:bg-input/30"
-                      >
-                        <IconPencil size={13} />
-                        change
-                      </button>
-                    }
-                  />
-                </div>
-              ) : mode === "code" ? (
-                codeSelectors
-              ) : (
-                <Tabs
-                  value={
-                    ![15, 30, 60, 120].includes(timeOption)
-                      ? "custom"
-                      : String(timeOption)
-                  }
-                  onValueChange={(v) => {
-                    if (v !== "custom") onTimeOptionChange(Number(v))
-                  }}
-                  className="flex items-center"
-                >
-                  <TabsList>
-                    {[15, 30, 60, 120].map((t) => (
-                      <TabsTrigger
-                        key={t}
-                        value={String(t)}
-                        className="cursor-pointer px-3 text-xs"
-                      >
-                        {t}
-                      </TabsTrigger>
-                    ))}
-                    <CustomTimeDialog
-                      timeOption={timeOption}
-                      onSave={onTimeOptionChange}
-                      trigger={
-                        <TabsTrigger
-                          value="custom"
-                          className="cursor-pointer px-3 text-xs"
-                        >
-                          <IconTool
-                            size={13}
-                            className={cn(
-                              ![15, 30, 60, 120].includes(timeOption) &&
-                                "text-primary"
-                            )}
-                          />
-                        </TabsTrigger>
+              {(() => {
+                if (mode === "words" || mode === "brainrot") {
+                  return (
+                    <Tabs
+                      value={
+                        ![10, 25, 50, 100].includes(wordOption)
+                          ? "custom"
+                          : String(wordOption)
                       }
-                    />
-                  </TabsList>
-                </Tabs>
-              )}
+                      onValueChange={(v) => {
+                        if (v !== "custom") onWordOptionChange(Number(v))
+                      }}
+                      className="flex items-center"
+                    >
+                      <TabsList>
+                        {[10, 25, 50, 100].map((w) => (
+                          <TabsTrigger
+                            key={w}
+                            value={String(w)}
+                            className="cursor-pointer px-3 text-xs"
+                          >
+                            {w}
+                          </TabsTrigger>
+                        ))}
+                        <Popover
+                          open={wordPopoverOpen}
+                          onOpenChange={setWordPopoverOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <TabsTrigger
+                              value="custom"
+                              className="cursor-pointer px-3 text-xs"
+                            >
+                              <IconTool
+                                size={13}
+                                className={cn(
+                                  ![10, 25, 50, 100].includes(wordOption) &&
+                                    "text-primary"
+                                )}
+                              />
+                            </TabsTrigger>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-40 p-2"
+                            sideOffset={12}
+                            align="center"
+                          >
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                Custom Words
+                              </span>
+                              <input
+                                type="number"
+                                placeholder="e.g. 500"
+                                defaultValue={wordOption}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation()
+                                  if (e.key === "Enter") {
+                                    const val = parseInt(e.currentTarget.value)
+                                    if (val > 0) {
+                                      onWordOptionChange(val)
+                                      setWordPopoverOpen(false)
+                                    }
+                                  }
+                                }}
+                                className="w-full rounded bg-muted px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TabsList>
+                    </Tabs>
+                  )
+                }
+                if (mode === "quote") {
+                  return (
+                    <Tabs
+                      value={quoteLength}
+                      onValueChange={(v) =>
+                        onQuoteLengthChange(v as QuoteLength)
+                      }
+                      className="flex items-center"
+                    >
+                      <TabsList>
+                        {(["short", "medium", "long"] as QuoteLength[]).map(
+                          (q) => (
+                            <TabsTrigger
+                              key={q}
+                              value={q}
+                              className="cursor-pointer px-3 text-xs"
+                            >
+                              {q}
+                            </TabsTrigger>
+                          )
+                        )}
+                      </TabsList>
+                    </Tabs>
+                  )
+                }
+                if (mode === "custom") {
+                  return (
+                    <div className="inline-flex h-9 items-center justify-center rounded-lg bg-muted p-[3px]">
+                      <CustomTextDialog
+                        value={customText}
+                        onSave={onCustomTextChange}
+                        codeManifest={codeManifest}
+                        trigger={
+                          <button
+                            type="button"
+                            className="flex h-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-3 text-xs font-medium text-foreground shadow-sm transition-colors focus-visible:outline-none dark:bg-input/30"
+                          >
+                            <IconPencil size={13} />
+                            change
+                          </button>
+                        }
+                      />
+                    </div>
+                  )
+                }
+                if (mode === "code") {
+                  return codeSelectors
+                }
+                return (
+                  <Tabs
+                    value={
+                      ![15, 30, 60, 120].includes(timeOption)
+                        ? "custom"
+                        : String(timeOption)
+                    }
+                    onValueChange={(v) => {
+                      if (v !== "custom") onTimeOptionChange(Number(v))
+                    }}
+                    className="flex items-center"
+                  >
+                    <TabsList>
+                      {[15, 30, 60, 120].map((t) => (
+                        <TabsTrigger
+                          key={t}
+                          value={String(t)}
+                          className="cursor-pointer px-3 text-xs"
+                        >
+                          {t}
+                        </TabsTrigger>
+                      ))}
+                      <CustomTimeDialog
+                        timeOption={timeOption}
+                        onSave={onTimeOptionChange}
+                        trigger={
+                          <TabsTrigger
+                            value="custom"
+                            className="cursor-pointer px-3 text-xs"
+                          >
+                            <IconTool
+                              size={13}
+                              className={cn(
+                                ![15, 30, 60, 120].includes(timeOption) &&
+                                  "text-primary"
+                              )}
+                            />
+                          </TabsTrigger>
+                        }
+                      />
+                    </TabsList>
+                  </Tabs>
+                )
+              })()}
             </>
           )}
         </div>

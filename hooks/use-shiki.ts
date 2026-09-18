@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import type { HighlighterCore } from "shiki"
+import type { HighlighterCore, ThemedToken } from "shiki"
 
 // Only list languages whose shiki name differs from the internal code name.
 const SHIKI_NAME_OVERRIDES: Record<string, string> = {
@@ -58,9 +58,92 @@ export function mapWordsToOffsets(rawCode: string, words: string[]): number[] {
   return offsets
 }
 
-/** Tokenizes words and returns per-word arrays of per-character hex colors.
- *  Pass `rawCode` (the original source) for accurate context-aware highlighting.
- *  Falls back to joining words with newlines if rawCode is not provided.
+/** Flatten shiki tokens into a per-character color array (newlines → undefined). */
+function buildCharColors(tokens: ThemedToken[][]): (string | undefined)[] {
+  const charColors: (string | undefined)[] = []
+  for (const line of tokens) {
+    for (const token of line) {
+      for (const ch of token.content) {
+        charColors.push(ch === "\n" ? undefined : token.color)
+      }
+    }
+    // newline between lines
+    charColors.push(undefined)
+  }
+  return charColors
+}
+
+/**
+ * Map each word to its per-character colors using offsets into the raw
+ * source, so repeated words keep the colors of their own occurrences.
+ */
+function mapWordsByOffsets(
+  words: string[],
+  offsets: number[],
+  charColors: (string | undefined)[]
+): (string | undefined)[][] {
+  const result: (string | undefined)[][] = []
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]
+    const idx = offsets[i]
+    const colors: (string | undefined)[] = []
+    for (let c = 0; c < word.length; c++) {
+      colors.push(idx === -1 ? undefined : (charColors[idx + c] ?? undefined))
+    }
+    result.push(colors)
+  }
+  return result
+}
+
+/** Map each word to per-character colors assuming one word per source line. */
+function mapWordsSequentially(
+  words: string[],
+  charColors: (string | undefined)[]
+): (string | undefined)[][] {
+  let pos = 0
+  const result: (string | undefined)[][] = []
+  for (const word of words) {
+    const colors: (string | undefined)[] = []
+    for (let i = 0; i < word.length; i++) {
+      colors.push(charColors[pos] ?? undefined)
+      pos++
+    }
+    result.push(colors)
+    if (pos < charColors.length && charColors[pos] === undefined) pos++
+  }
+  return result
+}
+
+/**
+ * Highlight `code` and map every word to its per-character colors.
+ * Uses raw-source offsets when available for occurrence-accurate colors,
+ * falling back to word-per-line mapping otherwise.
+ */
+async function computeColorMap(
+  words: string[],
+  code: string,
+  lang: string,
+  theme: string,
+  rawCode: string | undefined
+): Promise<(string | undefined)[][]> {
+  await ensureLang(lang)
+  const h = await getHighlighter()
+  const { tokens } = h.codeToTokens(code, {
+    lang: toShikiLang(lang),
+    theme: theme === "dark" ? "vitesse-dark" : "vitesse-light",
+  })
+
+  const charColors = buildCharColors(tokens)
+  if (!rawCode) return mapWordsSequentially(words, charColors)
+
+  const offsets = mapWordsToOffsets(rawCode, words)
+  return mapWordsByOffsets(words, offsets, charColors)
+}
+
+/**
+ * Tokenizes words and returns per-word arrays of per-character hex colors.
+ * Pass `rawCode` (the original source) for accurate context-aware highlighting.
+ * Falls back to joining words with newlines if rawCode is not provided.
  */
 export function useShikiTokens(
   words: string[],
@@ -80,70 +163,18 @@ export function useShikiTokens(
     }
 
     const codeToHighlight = rawCode ?? words.join("\n")
-    const wordsKey = words.join("|")
-    const key = `${lang}:${theme}:${codeToHighlight}:${wordsKey}`
+    const key = `${lang}:${theme}:${codeToHighlight}:${words.join("|")}`
     if (key === prevKey.current) return
     prevKey.current = key
 
     let cancelled = false
-    ;(async () => {
-      await ensureLang(lang)
-      const h = await getHighlighter()
-      const shikiLang = toShikiLang(lang)
-      const shikiTheme = theme === "dark" ? "vitesse-dark" : "vitesse-light"
-
-      const { tokens } = h.codeToTokens(codeToHighlight, {
-        lang: shikiLang,
-        theme: shikiTheme,
+    computeColorMap(words, codeToHighlight, lang, theme, rawCode)
+      .then((result) => {
+        if (!cancelled) setColorMap(result)
       })
-
-      // Build a flat char→color array from the full source
-      const charColors: (string | undefined)[] = []
-      for (const line of tokens) {
-        for (const token of line) {
-          for (const ch of token.content) {
-            charColors.push(ch === "\n" ? undefined : token.color)
-          }
-        }
-        // newline between lines
-        charColors.push(undefined)
-      }
-
-      if (rawCode) {
-        // Deterministic walk of the raw source so repeated words keep the
-        // colors of their own occurrences.
-        const offsets = mapWordsToOffsets(rawCode, words)
-        const result: (string | undefined)[][] = []
-        for (let i = 0; i < words.length; i++) {
-          const word = words[i]
-          const idx = offsets[i]
-          const colors: (string | undefined)[] = []
-          if (idx === -1) {
-            for (let c = 0; c < word.length; c++) colors.push(undefined)
-          } else {
-            for (let c = 0; c < word.length; c++) {
-              colors.push(charColors[idx + c] ?? undefined)
-            }
-          }
-          result.push(colors)
-        }
-        if (!cancelled) setColorMap(result)
-      } else {
-        // Original word-per-line mapping
-        let pos = 0
-        const result: (string | undefined)[][] = []
-        for (const word of words) {
-          const colors: (string | undefined)[] = []
-          for (let i = 0; i < word.length; i++) {
-            colors.push(charColors[pos] ?? undefined)
-            pos++
-          }
-          result.push(colors)
-          if (pos < charColors.length && charColors[pos] === undefined) pos++
-        }
-        if (!cancelled) setColorMap(result)
-      }
-    })()
+      .catch(() => {
+        // Highlighting is decorative — keep the previous map on failure.
+      })
 
     return () => {
       cancelled = true

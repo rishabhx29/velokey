@@ -110,6 +110,34 @@ function detectAfk(history: WpmSnapshotLike[]): boolean {
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 /**
+ * Per-second history checks (only meaningful when a history exists).
+ * Returns the failing reason, or `null` when the history looks legitimate.
+ */
+function findHistoryFailure(
+  wpmHistory: WpmSnapshotLike[],
+  wpm: number,
+  consistency: number
+): InvalidReason | null {
+  if (wpmHistory.length === 0) return null
+
+  // Single-second burst spike — hallmark of macro injection
+  if (hasImpossibleBurst(wpmHistory)) return "impossible_burst"
+
+  // AFK / tab-away mid-test
+  if (wpmHistory.length > MIN_HISTORY_FOR_STATS + 2 && detectAfk(wpmHistory))
+    return "afk_detected"
+
+  // Bot-like flat WPM line
+  if (isFlatHistory(wpmHistory, wpm)) return "flat_wpm_history"
+
+  // Inhuman consistency at speed
+  if (hasPerfectConsistency(consistency, wpm, wpmHistory.length))
+    return "perfect_consistency"
+
+  return null
+}
+
+/**
  * Returns `{ valid: true }` for a legitimate result or
  * `{ valid: false, reason }` with the first failing check.
  *
@@ -167,24 +195,9 @@ export function validateResultStats(
   const cps = keystrokes / elapsedSeconds
   if (cps > MAX_CHARS_PER_SEC) return { valid: false, reason: "impossible_cps" }
 
-  // 7. Per-second history checks (only when we have a history)
-  if (wpmHistory.length > 0) {
-    // Single-second burst spike — hallmark of macro injection
-    if (hasImpossibleBurst(wpmHistory))
-      return { valid: false, reason: "impossible_burst" }
-
-    // AFK / tab-away mid-test
-    if (wpmHistory.length > MIN_HISTORY_FOR_STATS + 2 && detectAfk(wpmHistory))
-      return { valid: false, reason: "afk_detected" }
-
-    // Bot-like flat WPM line
-    if (isFlatHistory(wpmHistory, wpm))
-      return { valid: false, reason: "flat_wpm_history" }
-
-    // Inhuman consistency at speed
-    if (hasPerfectConsistency(consistency, wpm, wpmHistory.length))
-      return { valid: false, reason: "perfect_consistency" }
-  }
+  // 7. Per-second history checks
+  const historyFailure = findHistoryFailure(wpmHistory, wpm, consistency)
+  if (historyFailure) return { valid: false, reason: historyFailure }
 
   return { valid: true }
 }

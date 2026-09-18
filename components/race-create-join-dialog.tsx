@@ -31,6 +31,33 @@ interface RaceCreateJoinDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+/** Per-mode option state: which count is active, which choices to show. */
+function optionStateFor(
+  mode: RaceMode,
+  wordOption: number,
+  timeOption: number
+): {
+  selectedOptionValue: number
+  optionChoices: number[]
+  optionChoicesLabel: string
+  optionLabel: (opt: number) => string
+} {
+  if (mode === "words") {
+    return {
+      selectedOptionValue: wordOption,
+      optionChoices: [25, 50, 100],
+      optionChoicesLabel: "Word Count",
+      optionLabel: (opt) => `${opt}`,
+    }
+  }
+  return {
+    selectedOptionValue: timeOption,
+    optionChoices: [15, 30, 60],
+    optionChoicesLabel: "Duration",
+    optionLabel: (opt) => `${opt}s`,
+  }
+}
+
 export function RaceCreateJoinDialog({
   open,
   onOpenChange,
@@ -51,6 +78,25 @@ export function RaceCreateJoinDialog({
   const [nick, setNick] = useState(() => getOrCreateNickname())
   const [editingNick, setEditingNick] = useState(false)
 
+  const handleOptionChange = (opt: number) => {
+    if (mode === "words") {
+      setWordOption(opt)
+    } else {
+      setTimeOption(opt)
+    }
+  }
+
+  const {
+    selectedOptionValue,
+    optionChoices,
+    optionChoicesLabel,
+    optionLabel,
+  } = optionStateFor(mode, wordOption, timeOption)
+  const tabButtonClass = (t: "create" | "join") =>
+    t === tab
+      ? "bg-background text-foreground shadow-sm"
+      : "text-muted-foreground hover:text-foreground"
+
   const configureRoom = useCallback(
     async (code: string, config: Record<string, unknown>) => {
       const response = await fetch(partyRoomUrl(code), {
@@ -61,6 +107,13 @@ export function RaceCreateJoinDialog({
       if (!response.ok) throw new Error("Unable to prepare race room")
     },
     []
+  )
+
+  const navigateToRoom = useCallback(
+    (code: string) => {
+      startTransition(() => router.push(`/race/${code}`))
+    },
+    [router]
   )
 
   const handleMatched = useCallback(
@@ -75,21 +128,27 @@ export function RaceCreateJoinDialog({
     ) => {
       try {
         await configureRoom(code, { ...config, isQuickMatch: true })
-        startTransition(() => router.push(`/race/${code}`))
+        navigateToRoom(code)
       } catch {
         setJoinError(
           "Matched, but the race room could not be prepared. Please try again."
         )
       }
     },
-    [configureRoom, router]
+    [configureRoom, navigateToRoom]
   )
 
   const quickMatch = useQuickMatch(handleMatched)
 
+  const findingPlayers =
+    quickMatch.waitMs >= quickMatch.suggestedTimeoutMs
+      ? "Finding players — still searching"
+      : "Finding players..."
+
   // Close dialog when we actually navigate away
   useEffect(() => {
-    if (open && pathname.startsWith("/race/")) {
+    const navigatedToRace = open && pathname.startsWith("/race/")
+    if (navigatedToRace) {
       onOpenChange(false)
     }
   }, [pathname, open, onOpenChange])
@@ -104,7 +163,7 @@ export function RaceCreateJoinDialog({
         difficulty,
         isQuickMatch: false,
       })
-      startTransition(() => router.push(`/race/${code}`))
+      navigateToRoom(code)
     } catch {
       setJoinError("Unable to create the race room. Please try again.")
     }
@@ -112,7 +171,8 @@ export function RaceCreateJoinDialog({
 
   const handleJoin = () => {
     const normalized = normalizeRoomCode(joinCode)
-    if (!normalized || !isValidRoomCode(normalized)) {
+    const isValid = normalized !== null && isValidRoomCode(normalized)
+    if (!isValid) {
       setJoinError("Invalid room code")
       return
     }
@@ -140,14 +200,15 @@ export function RaceCreateJoinDialog({
     setNick(newNick)
   }
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      quickMatch.cancel()
+    }
+    onOpenChange(nextOpen)
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) quickMatch.cancel()
-        onOpenChange(nextOpen)
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-md gap-0 overflow-hidden border-border/60 bg-background/95 p-0 backdrop-blur-xl">
         <DialogTitle className="sr-only">Join a Race</DialogTitle>
 
@@ -163,7 +224,9 @@ export function RaceCreateJoinDialog({
                 value={nick}
                 onChange={(e) => setNick(e.target.value)}
                 onBlur={handleNickSave}
-                onKeyDown={(e) => e.key === "Enter" && handleNickSave()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleNickSave()
+                }}
                 className="w-36 rounded-lg bg-muted px-2.5 py-1 text-sm font-medium outline-none focus:ring-1 focus:ring-primary"
                 autoFocus
                 maxLength={20}
@@ -200,16 +263,11 @@ export function RaceCreateJoinDialog({
               onClick={() => setTab(t)}
               className={cn(
                 "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all duration-200 select-none",
-                tab === t
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                tabButtonClass(t)
               )}
             >
-              {t === "create" ? (
-                <IconSwords size={14} />
-              ) : (
-                <IconDoorEnter size={14} />
-              )}
+              {t === "create" && <IconSwords size={14} />}
+              {t === "join" && <IconDoorEnter size={14} />}
               {t === "create" ? "Create Room" : "Join Room"}
             </button>
           ))}
@@ -271,30 +329,24 @@ export function RaceCreateJoinDialog({
                 {/* Options */}
                 <div className="flex flex-col gap-2">
                   <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                    {mode === "words" ? "Word Count" : "Duration"}
+                    {optionChoicesLabel}
                   </span>
                   <div className="grid grid-cols-3 gap-2">
-                    {(mode === "words" ? [25, 50, 100] : [15, 30, 60]).map(
-                      (opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() =>
-                            mode === "words"
-                              ? setWordOption(opt)
-                              : setTimeOption(opt)
-                          }
-                          className={cn(
-                            "cursor-pointer rounded-xl border py-2 text-sm font-semibold transition-all duration-200 select-none",
-                            (mode === "words" ? wordOption : timeOption) === opt
-                              ? "border-primary/50 bg-primary/10 text-primary shadow-xs"
-                              : "border-border/60 bg-muted/50 text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {mode === "words" ? opt : `${opt}s`}
-                        </button>
-                      )
-                    )}
+                    {optionChoices.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => handleOptionChange(opt)}
+                        className={cn(
+                          "cursor-pointer rounded-xl border py-2 text-sm font-semibold transition-all duration-200 select-none",
+                          selectedOptionValue === opt
+                            ? "border-primary/50 bg-primary/10 text-primary shadow-xs"
+                            : "border-border/60 bg-muted/50 text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {optionLabel(opt)}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -329,11 +381,10 @@ export function RaceCreateJoinDialog({
                   disabled={isPending || isMatchmaking}
                   className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm transition-all duration-200 select-none hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isPending ? (
+                  {isPending && (
                     <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconSwords size={16} />
                   )}
+                  {!isPending && <IconSwords size={16} />}
                   {isPending ? "Creating Room..." : "Create Room"}
                 </button>
 
@@ -352,14 +403,11 @@ export function RaceCreateJoinDialog({
                   disabled={isPending || isMatchmaking}
                   className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/50 py-3 text-sm font-semibold text-muted-foreground transition-all duration-200 select-none hover:border-primary/40 hover:text-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isMatchmaking || isPending ? (
+                  {(isMatchmaking || isPending) && (
                     <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconBolt size={16} />
                   )}
-                  {isMatchmaking
-                    ? `Finding players${quickMatch.waitMs >= quickMatch.suggestedTimeoutMs ? " — still searching" : "..."}`
-                    : "Quick Match"}
+                  {!isMatchmaking && !isPending && <IconBolt size={16} />}
+                  {isMatchmaking ? findingPlayers : "Quick Match"}
                 </button>
               </motion.div>
             ) : (
@@ -405,11 +453,10 @@ export function RaceCreateJoinDialog({
                   }
                   className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-sm transition-all duration-200 select-none hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {isPending ? (
+                  {isPending && (
                     <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconDoorEnter size={16} />
                   )}
+                  {!isPending && <IconDoorEnter size={16} />}
                   {isPending ? "Joining Room..." : "Join Room"}
                 </button>
 
@@ -427,14 +474,11 @@ export function RaceCreateJoinDialog({
                   disabled={isPending || isMatchmaking}
                   className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/50 py-3 text-sm font-semibold text-muted-foreground transition-all duration-200 select-none hover:border-primary/40 hover:text-foreground active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isMatchmaking || isPending ? (
+                  {(isMatchmaking || isPending) && (
                     <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconBolt size={16} />
                   )}
-                  {isMatchmaking
-                    ? `Finding players${quickMatch.waitMs >= quickMatch.suggestedTimeoutMs ? " — still searching" : "..."}`
-                    : "Quick Match"}
+                  {!isMatchmaking && !isPending && <IconBolt size={16} />}
+                  {isMatchmaking ? findingPlayers : "Quick Match"}
                 </button>
               </motion.div>
             )}
