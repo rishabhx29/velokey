@@ -10,7 +10,7 @@
     "components/**/*.stories.tsx"
   ],
   "project": [
-    "app/**/*.{ts,tsx}",
+    "app/**/*.{ts,tsx,css}",
     "components/**/*.{ts,tsx}",
     "hooks/**/*.ts",
     "lib/**/*.ts",
@@ -21,9 +21,6 @@
   ],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
-    "tailwindcss",
-    "tw-animate-css",
-    "shadcn",
     "inspirational-quotes",
     "browserslist",
     "dompurify",

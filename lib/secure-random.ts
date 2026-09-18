@@ -19,15 +19,9 @@ function getByteSource(): ByteSource {
 
 const byteSource = getByteSource()
 
-/** True when crypto-backed randomness is available on this runtime. */
-export function hasCryptoRandom(): boolean {
-  return byteSource !== null
-}
-
 /**
  * Uniform random integer in [0, maxExclusive).
- * Throws on runtimes without WebCrypto — use `hasCryptoRandom()` to check first
- * if a fallback is acceptable.
+ * Throws on runtimes without WebCrypto.
  */
 export function randomInt(maxExclusive: number): number {
   if (byteSource === null) {
@@ -73,20 +67,4 @@ export function randomShuffle<T>(items: readonly T[]): T[] {
     result[j] = a
   }
   return result
-}
-
-/** Cryptographically random identifier, URL-safe, default 21 chars (~126 bits). */
-export function randomId(length = 21): string {
-  const alphabet =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  if (byteSource === null) {
-    throw new Error(
-      "crypto.getRandomValues unavailable: cannot generate secure ids"
-    )
-  }
-  let id = ""
-  for (let i = 0; i < length; i++) {
-    id += alphabet[randomInt(alphabet.length)]
-  }
-  return id
 }
