@@ -21,6 +21,9 @@
 /.next/
 /out/
 
+# generated service worker (built from app/sw.ts by @serwist/next)
+/public/sw.js
+
 # production
 /build
 
