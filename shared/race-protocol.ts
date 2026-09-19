@@ -265,9 +265,16 @@ export function sanitizeColor(color: unknown): string {
 export function sanitizeNickname(nickname: unknown): string | null {
   if (typeof nickname !== "string") return null
   // Strip control characters and ANSI escapes so no player can inject
-  // terminal/rendering control sequences into other clients.
-  const cleaned = nickname
-    .replace(/[\u0000-\u001f\u007f]/g, "")
+  // terminal/rendering control sequences into other clients. Scans code
+  // points directly instead of using a control-character regex (which
+  // static analyzers flag as "Remove this control character"), and the
+  // single-pass filter cannot backtrack.
+  const cleaned = Array.from(nickname)
+    .filter((ch) => {
+      const code = ch.codePointAt(0) ?? 0
+      return code > 0x1f && code !== 0x7f
+    })
+    .join("")
     .trim()
     .slice(0, MAX_NICKNAME_LENGTH)
   return cleaned.length > 0 ? cleaned : null

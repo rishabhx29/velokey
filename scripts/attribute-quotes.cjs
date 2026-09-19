@@ -32,4 +32,4 @@ for (const q of quotes) {
 }
 
 fs.writeFileSync(file, JSON.stringify(quotes))
-console.log(`re-attributed ${fixedCount} quotes`)
+console.log("re-attributed", fixedCount, "quotes")

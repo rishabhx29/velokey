@@ -6,14 +6,25 @@ const settingsDataPath = path.join(process.cwd(), "lib", "settings-data.ts");
 const globalsCssPath = path.join(process.cwd(), "app", "globals.css");
 
 function extractVar(css, blockSelector, varName) {
-  const escapedSelector = blockSelector.replace(/\./g, "\\.");
-  const blockRegex = new RegExp(`${escapedSelector}\\s*\\{([^}]+)\\}`);
-  const rootBlock = css.match(blockRegex);
-  if (!rootBlock) return null;
-  const re = new RegExp(`${varName}:\\s*([^;]+);`);
-  const match = rootBlock[1].match(re);
-  if (!match) return null;
-  return match[1].trim();
+  // ReDoS-safe: no `new RegExp()` on variables. Block content is located with
+  // indexOf scanning (backtracking-free), and the variable name is compared
+  // literally instead of being interpolated into a pattern.
+  const openTag = `${blockSelector} {`;
+  const start = css.indexOf(openTag);
+  if (start === -1) return null;
+  const open = css.indexOf("{", start + openTag.length - 1);
+  if (open === -1) return null;
+  const close = css.indexOf("}", open);
+  if (close === -1) return null;
+
+  const block = css.slice(open + 1, close);
+  const decl = `${varName}:`;
+  const declStart = block.indexOf(decl);
+  if (declStart === -1) return null;
+  const valueStart = declStart + decl.length;
+  const declEnd = block.indexOf(";", valueStart);
+  if (declEnd === -1) return null;
+  return block.slice(valueStart, declEnd).trim();
 }
 
 function parseLabel(stem) {
@@ -73,7 +84,7 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${newAccents.length} new theme accents:`, newAccents.map((a) => a.id).join(", "));
+  console.log("Found", newAccents.length, "new theme accents:", newAccents.map((a) => a.id).join(", "));
 
   // Add to AccentColor type
   const typeStartIdx = settingsContent.indexOf("export type AccentColor =");

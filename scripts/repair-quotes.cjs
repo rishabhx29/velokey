@@ -22,4 +22,4 @@ const fixed = quotes.map((q) => {
 const cleaned = fixed.filter((q) => q.text && q.text.trim().length > 0)
 
 fs.writeFileSync(file, JSON.stringify(cleaned))
-console.log(`repaired ${repaired} quotes; total ${cleaned.length}`)
+console.log("repaired", repaired, "quotes; total", cleaned.length)

@@ -12,12 +12,24 @@ function isSystemFont(name) {
 }
 
 function extractVar(css, varName) {
-  const rootBlock = css.match(/:root\s*\{([^}]+)\}/);
-  if (!rootBlock) return null;
-  const re = new RegExp(`${varName}:\\s*([^;]+);`);
-  const match = rootBlock[1].match(re);
-  if (!match) return null;
-  const value = match[1].trim();
+  // ReDoS-safe: no `new RegExp()` on variables. The :root block is located
+  // with indexOf scanning (backtracking-free) and the variable name is
+  // compared literally instead of being interpolated into a pattern.
+  const start = css.indexOf(":root");
+  if (start === -1) return null;
+  const open = css.indexOf("{", start);
+  if (open === -1) return null;
+  const close = css.indexOf("}", open);
+  if (close === -1) return null;
+
+  const block = css.slice(open + 1, close);
+  const decl = `${varName}:`;
+  const declStart = block.indexOf(decl);
+  if (declStart === -1) return null;
+  const valueStart = declStart + decl.length;
+  const declEnd = block.indexOf(";", valueStart);
+  if (declEnd === -1) return null;
+  const value = block.slice(valueStart, declEnd).trim();
   if (value.startsWith("var(")) return null;
   const firstFont = value.split(",")[0].replace(/['"/]/g, "").trim();
   if (isSystemFont(firstFont)) return null;
@@ -67,7 +79,7 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${newFonts.length} new theme fonts:`, newFonts.map((f) => f.id).join(", "));
+  console.log("Found", newFonts.length, "new theme fonts:", newFonts.map((f) => f.id).join(", "));
 
   // Add to TypingFont type
   const typeEndIdx = settingsContent.indexOf("export interface FontOption");

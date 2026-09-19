@@ -95,7 +95,9 @@ async function loadThemes(): Promise<ThemeOption[]> {
     // Directory doesn't exist or unreadable — return only default
   }
 
-  files.sort()
+  // localeCompare keeps the ordering deterministic and locale-aware;
+  // a bare sort() is type-dependent for mixed/non-ASCII filenames.
+  files.sort((a, b) => a.localeCompare(b))
 
   const themes: ThemeOption[] = [
     {

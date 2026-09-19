@@ -21,4 +21,4 @@ const myOrder: Order = {
 };
 
 const updatedOrder = updateOrderStatus(myOrder, "processing");
-console.log(`Current state: ${updatedOrder.status}`);
+console.log("Current state:", updatedOrder.status);

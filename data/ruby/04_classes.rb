@@ -1,4 +1,6 @@
 class Animal
+  # Readable attributes are exposed intentionally via attr_reader, keeping the
+  # writable surface explicit — no mass-assignment-style open attributes.
   attr_reader :name
 
   def initialize(name)

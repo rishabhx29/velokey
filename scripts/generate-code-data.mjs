@@ -63,10 +63,26 @@ async function main() {
 
     try {
       const langDir = path.join(dataDir, langCode);
+
+      // Path-traversal guard: language directory must be a bare name, and
+      // chapter-derived filenames must be safe before any path is joined.
+      if (
+        path.basename(langCode) !== langCode ||
+        !/^[A-Za-z0-9_-]+$/.test(langCode)
+      ) {
+        throw new Error(`Untrusted language directory name: ${langCode}`);
+      }
+
       const files = await fs.promises.readdir(langDir);
 
+      // Path-traversal guard: only bare, allowlisted chapter stems are read.
       const chapters = files
-        .filter((f) => !f.startsWith("."))
+        .filter(
+          (f) =>
+            !f.startsWith(".") &&
+            path.basename(f) === f &&
+            /^[A-Za-z0-9_-]+$/.test(path.basename(f, path.extname(f)))
+        )
         .map((f) => path.basename(f, path.extname(f)))
         .sort((a, b) => {
           const numA = parseInt(a.split("_")[0], 10);
@@ -80,12 +96,17 @@ async function main() {
 
         for (const chap of chapters) {
           const filePath = path.join(langDir, `${chap}.${ext}`);
+          if (
+            !path.resolve(filePath).startsWith(path.resolve(langDir) + path.sep)
+          ) {
+            throw new Error(`Refusing to read outside data dir: ${filePath}`);
+          }
           const content = await fs.promises.readFile(filePath, "utf-8");
           codeFiles[`${langCode}/${chap}`] = content;
         }
       }
     } catch (err) {
-      console.error(`Failed to read ${langCode}`, err);
+      console.error("Failed to read language directory", err);
     }
   }
 

@@ -9,6 +9,10 @@ const CHARSET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const CODE_LENGTH = 4
 const PREFIX = "VELO"
 
+// Static literal (not built via `new RegExp(string)`) — avoids the
+// dynamic-regex/ReDoS pattern class entirely and is faster to evaluate.
+const ROOM_CODE_PATTERN = /^VELO-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/
+
 export function generateRoomCode(): string {
   const chars: string[] = []
   for (let i = 0; i < CODE_LENGTH; i++) {
@@ -20,8 +24,7 @@ export function generateRoomCode(): string {
 export function isValidRoomCode(input: string): boolean {
   const normalized = normalizeRoomCode(input)
   if (!normalized) return false
-  const re = new RegExp(`^${PREFIX}-[${CHARSET}]{${CODE_LENGTH}}$`)
-  return re.test(normalized)
+  return ROOM_CODE_PATTERN.test(normalized)
 }
 
 export function normalizeRoomCode(input: string): string | null {
