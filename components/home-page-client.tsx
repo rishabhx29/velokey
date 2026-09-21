@@ -71,6 +71,7 @@ export default function Page() {
     showKeyboard,
     setShowKeyboard,
     keyboardStyle,
+    keyboardTheme,
     soundEnabled,
     soundPack,
     language,
@@ -245,7 +246,7 @@ export default function Page() {
                 keyboardStyle
               ) && (
                 <Keyboard
-                  theme="classic"
+                  theme={keyboardTheme}
                   enableHaptics
                   enableSound={soundEnabled}
                   soundUrl={soundUrl}

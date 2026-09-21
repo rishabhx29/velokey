@@ -11,10 +11,6 @@ import {
   type ReactNode,
 } from "react"
 import { useMountEffect } from "@/hooks/use-mount-effect"
-import {
-  applyCustomThemeToDom,
-  loadCustomTheme,
-} from "@/components/theme-studio-dialog"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "motion/react"
@@ -74,7 +70,6 @@ export function AppChrome({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    applyCustomThemeToDom(loadCustomTheme())
     const checkMobile = () =>
       queueMicrotask(() => setIsMobile(window.innerWidth < 1024))
     checkMobile()

@@ -1,36 +1,22 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import {
-  IconX,
-  IconLoader2,
-  IconChevronDown,
-  IconPalette,
-} from "@tabler/icons-react"
-import { ThemeStudioDialog } from "@/components/theme-studio-dialog"
+import { useEffect, useState } from "react"
+import { IconX, IconLoader2 } from "@tabler/icons-react"
 import type { SoundPack } from "@/components/settings-context"
 import { CaretDownIcon } from "@phosphor-icons/react"
+import { KEYBOARD_THEMES } from "@/lib/keyboard-themes"
 import { motion, AnimatePresence } from "motion/react"
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer"
 import {
   useSettings,
-  ACCENT_COLORS,
   FONT_OPTIONS,
   FONT_SIZES,
   SOUND_PACKS,
 } from "@/components/settings-context"
 import { NextThemeSwitcher } from "@/components/kibo-ui/theme-switcher"
-
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { Language } from "@/lib/languages"
 import { getLanguageManifest, isRTLLanguage } from "@/lib/languages"
-import type { ThemeOption } from "@/app/api/themes/route"
 
 interface SettingsPanelProps {
   open: boolean
@@ -39,8 +25,8 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const {
-    accent,
-    setAccent,
+    keyboardTheme,
+    setKeyboardTheme,
     font,
     setFont,
     showKeyboard,
@@ -78,22 +64,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     showLineNumbers,
     setShowLineNumbers,
     soundPackLoading,
-    colorTheme,
-    setColorTheme,
   } = useSettings()
   const isRTL = isRTLLanguage(language)
   const [isMobile, setIsMobile] = useState(false)
   const [fontPickerOpen, setFontPickerOpen] = useState(false)
   const [fontSearch, setFontSearch] = useState("")
-  const [themePickerOpen, setThemePickerOpen] = useState(false)
-  const [themeSearch, setThemeSearch] = useState("")
+
   const [langPickerOpen, setLangPickerOpen] = useState(false)
   const [langSearch, setLangSearch] = useState("")
   const [languages, setLanguages] = useState<Language[]>([])
-  const [themes, setThemes] = useState<ThemeOption[]>([])
   const [cacheInfo, setCacheInfo] = useState<string | null>(null)
-  const [showAllAccents, setShowAllAccents] = useState(false)
-  const [themeStudioOpen, setThemeStudioOpen] = useState(false)
 
   const focusTypingInput = () => {
     const typingInput = document.querySelector<HTMLInputElement>(
@@ -134,15 +114,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     if (open && languages.length === 0) {
       getLanguageManifest().then(setLanguages)
     }
-    if (open && themes.length === 0) {
-      fetch("/api/themes")
-        .then((r) => r.json())
-        .then(setThemes)
-        .catch(() => {})
-    }
-  }, [open, languages.length, themes.length])
-
-  const swatchRef = useRef<HTMLDivElement>(null)
+  }, [open, languages.length])
 
   const panelContent = (
     <div className="flex-1 space-y-7 overflow-y-auto px-4 py-5">
@@ -151,216 +123,67 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         <NextThemeSwitcher />
       </section>
 
-      {/* Color Theme Picker */}
-      <section>
-        <SectionLabel>Color Theme</SectionLabel>
-        <div className="relative mt-3">
-          <button
-            type="button"
-            onClick={() => {
-              setThemePickerOpen((v) => !v)
-              setThemeSearch("")
-            }}
-            className={cn(
-              "flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-left text-xs transition-colors outline-none",
-              "hover:bg-muted/50"
-            )}
-          >
-            <span className="flex min-w-0 items-center gap-2 truncate">
-              {/* Swatch for the selected theme */}
-              {(() => {
-                const active = themes.find((t) => t.id === colorTheme)
-                const swatchColor = active?.primaryColor ?? `var(--primary)`
-                return (
-                  <span
-                    className="size-3 shrink-0 rounded-full border border-black/10"
-                    style={{ background: swatchColor }}
-                  />
-                )
-              })()}
-              {themes.find((t) => t.id === colorTheme)?.label ??
-                colorTheme
-                  .split("-")
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(" ")}
-            </span>
-            <CaretDownIcon
-              className={cn(
-                "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                themePickerOpen && "rotate-180"
-              )}
-              weight="bold"
-            />
-          </button>
-          <AnimatePresence initial={false}>
-            {themePickerOpen && (
-              <motion.div
-                key="theme-list"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="absolute top-[calc(100%+4px)] left-0 z-50 w-full overflow-hidden rounded-lg border border-border bg-background shadow-xl"
-              >
-                <div className="border-b border-border px-2 py-1.5">
-                  <input
-                    type="text"
-                    placeholder="Search themes..."
-                    value={themeSearch}
-                    onChange={(e) => setThemeSearch(e.target.value)}
-                    className="w-full bg-transparent text-[16px] outline-none placeholder:text-muted-foreground md:text-xs"
-                    autoFocus
-                  />
-                </div>
-                <div className="custom-scrollbar flex max-h-48 flex-col overflow-y-auto p-1">
-                  {(() => {
-                    const q = themeSearch.trim().toLowerCase()
-                    const filtered = q
-                      ? themes.filter(
-                          (t) =>
-                            t.label.toLowerCase().includes(q) ||
-                            t.id.toLowerCase().includes(q)
-                        )
-                      : themes
-                    return filtered.length > 0 ? (
-                      filtered.map((t) => (
-                        <button
-                          type="button"
-                          key={t.id}
-                          onClick={() => {
-                            setColorTheme(t.id, t.url, t.fontSans, t.fontMono)
-                            setThemePickerOpen(false)
-                            setThemeSearch("")
-                          }}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                            colorTheme === t.id
-                              ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          )}
-                        >
-                          {/* Color swatch */}
-                          <span
-                            className="size-3 shrink-0 rounded-full border border-black/10"
-                            style={{
-                              background: t.primaryColor ?? `var(--primary)`,
-                            }}
-                          />
-                          <span
-                            style={
-                              t.fontSans
-                                ? { fontFamily: t.fontSans }
-                                : undefined
-                            }
-                          >
-                            {t.label}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="py-4 text-center text-xs text-muted-foreground">
-                        No themes found
-                      </p>
-                    )
-                  })()}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </section>
-
-      <section>
-        <div className="flex items-center justify-between">
-          <SectionLabel>Accent</SectionLabel>
-          <button
-            type="button"
-            onClick={() => setThemeStudioOpen(true)}
-            className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-          >
-            <IconPalette className="size-3.5" />
-            Theme Studio
-          </button>
-        </div>
-        <ThemeStudioDialog
-          open={themeStudioOpen}
-          onOpenChange={setThemeStudioOpen}
-        />
-        <div ref={swatchRef} className="mt-3">
-          <TooltipProvider delayDuration={300}>
-            <div className="grid grid-cols-8 gap-1.5">
-              {ACCENT_COLORS.slice(0, 7).map((c) => (
-                <Tooltip key={c.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setAccent(c.id)}
-                      className={cn(
-                        "h-7 w-full rounded-sm transition-all duration-150",
-                        accent === c.id
-                          ? "opacity-100 outline outline-2 outline-offset-[-2px] outline-white/50"
-                          : "opacity-40 hover:opacity-80"
-                      )}
-                      style={{ background: c.swatch }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">{c.label}</TooltipContent>
-                </Tooltip>
-              ))}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShowAllAccents((v) => !v)}
-                    className="flex h-7 w-full items-center justify-center rounded-sm bg-blue-500/80 text-white opacity-80 transition-all duration-150 hover:opacity-100"
-                  >
-                    <motion.span
-                      animate={{ rotate: showAllAccents ? 180 : 0 }}
-                      transition={{ duration: 0.25, ease: "easeInOut" }}
-                      className="flex items-center justify-center"
-                    >
-                      <IconChevronDown size={13} />
-                    </motion.span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {showAllAccents ? "Show less" : "Show more"}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <AnimatePresence initial={false}>
-              {showAllAccents && (
-                <motion.div
-                  key="extra-accents"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
-                  className="overflow-visible"
+      {/* Keyboard Theme Picker (keyb.himan.me themes) */}
+      {showKeyboard && !isMobile && (
+        <section>
+          <SectionLabel>Keyboard Theme</SectionLabel>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {KEYBOARD_THEMES.map((t) => {
+              const selected = keyboardTheme === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setKeyboardTheme(t.id)}
+                  aria-pressed={selected}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center gap-2 rounded-lg border p-2 text-center transition-colors outline-none",
+                    "hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    selected
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-input bg-background text-muted-foreground"
+                  )}
                 >
-                  <div className="mt-1.5 grid grid-cols-8 gap-1.5">
-                    {ACCENT_COLORS.slice(7).map((c) => (
-                      <Tooltip key={c.id}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => setAccent(c.id)}
-                            className={cn(
-                              "h-7 w-full rounded-sm transition-all duration-150",
-                              accent === c.id
-                                ? "opacity-100 outline outline-2 outline-offset-[-2px] outline-white/50"
-                                : "opacity-40 hover:opacity-80"
-                            )}
-                            style={{ background: c.swatch }}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">{c.label}</TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </TooltipProvider>
-        </div>
-      </section>
+                  {/* Mini keyboard preview: accent / dark / light keycaps */}
+                  <span className="flex w-full items-center justify-center gap-1">
+                    <span
+                      className="h-4 w-2.5 rounded-[2px]"
+                      style={{ background: t.accent }}
+                    />
+                    <span className="flex gap-[2px]">
+                      <span
+                        className="h-4 w-2.5 rounded-[2px]"
+                        style={{ background: t.dark }}
+                      />
+                      <span
+                        className="h-4 w-2.5 rounded-[2px]"
+                        style={{ background: t.dark }}
+                      />
+                    </span>
+                    <span className="flex gap-[2px]">
+                      <span
+                        className="h-4 w-2.5 rounded-[2px]"
+                        style={{ background: t.light }}
+                      />
+                      <span
+                        className="h-4 w-2.5 rounded-[2px]"
+                        style={{ background: t.light }}
+                      />
+                      <span
+                        className="h-4 w-2.5 rounded-[2px]"
+                        style={{ background: t.light }}
+                      />
+                    </span>
+                  </span>
+                  <span className="text-[10px] leading-tight font-medium">
+                    {t.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <SectionHeader title="Sound" description="Audio feedback when typing" />

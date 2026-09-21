@@ -119,7 +119,7 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
               config={roomConfig}
             />
 
-            <div className="relative w-full">
+            <div className="relative mx-auto w-full max-w-site">
               {/* Gate on server words: before they arrive the engine would mount
                   with fallback solo words, flash the wrong text, then reset when
                   the real race words land (visible on every rejoin/refresh). */}

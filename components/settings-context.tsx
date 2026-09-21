@@ -2,28 +2,19 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 import { useMountEffect } from "@/hooks/use-mount-effect"
-import { syncVeloKeyFavicon } from "@/lib/favicon-client"
 import {
   FONT_OPTIONS,
-  type AccentColor,
   type FontSize,
   type SoundPack,
   type TypingFont,
 } from "@/lib/settings-data"
+import { KEYBOARD_THEMES, type KeyboardThemeName } from "@/lib/keyboard-themes"
 
-export type {
-  AccentColor,
-  FontSize,
-  SoundPack,
-  TypingFont,
-} from "@/lib/settings-data"
+export type { FontSize, SoundPack, TypingFont } from "@/lib/settings-data"
+export type { KeyboardThemeName } from "@/lib/keyboard-themes"
 
-export {
-  ACCENT_COLORS,
-  FONT_OPTIONS,
-  FONT_SIZES,
-  SOUND_PACKS,
-} from "@/lib/settings-data"
+export { FONT_OPTIONS, FONT_SIZES, SOUND_PACKS } from "@/lib/settings-data"
+export { KEYBOARD_THEMES } from "@/lib/keyboard-themes"
 
 export type KeyboardStyle =
   | "normal"
@@ -34,22 +25,15 @@ export type KeyboardStyle =
   | "split"
   | "ortho"
   | "compact"
+
 interface SettingsContextType {
-  accent: AccentColor
-  setAccent: (c: AccentColor) => void
+  keyboardTheme: KeyboardThemeName
+  setKeyboardTheme: (t: KeyboardThemeName) => void
   font: TypingFont
   setFont: (f: TypingFont) => void
   fontCssFamily: string
   fontSize: FontSize
   setFontSize: (s: FontSize) => void
-  colorTheme: string
-  themeLoading: boolean
-  setColorTheme: (
-    t: string,
-    url: string | null,
-    fontSans?: string | null,
-    fontMono?: string | null
-  ) => void
   showKeyboard: boolean
   setShowKeyboard: (v: boolean) => void
   keyboardStyle: KeyboardStyle
@@ -89,6 +73,8 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | null>(null)
 
+export const KEYBOARD_THEME_STORAGE_KEY = "tc-keyboard-theme"
+
 function loadGoogleFont(family: string) {
   const id = `gf-${family}`
   if (document.getElementById(id)) return
@@ -99,11 +85,6 @@ function loadGoogleFont(family: string) {
   document.head.appendChild(link)
 }
 
-function applyAccentToDom(accent: AccentColor) {
-  document.documentElement.setAttribute("data-accent", accent)
-  queueMicrotask(() => syncVeloKeyFavicon())
-}
-
 function applyFontToDom(fontId: TypingFont) {
   const option = FONT_OPTIONS.find((f) => f.id === fontId)
   if (!option) return
@@ -111,130 +92,10 @@ function applyFontToDom(fontId: TypingFont) {
   document.documentElement.style.setProperty("--typing-font", option.cssFamily)
 }
 
-const THEME_LINK_ID = "velokey-color-theme"
-
-/** System font keywords that don't need to be loaded from Google Fonts */
-const SYSTEM_FONT_PREFIXES = [
-  "ui-",
-  "system-ui",
-  "-apple-",
-  "BlinkMacSystemFont",
-]
-
-function isSystemFont(name: string): boolean {
-  const n = name.replace(/['"/]/g, "").trim()
-  return SYSTEM_FONT_PREFIXES.some((p) => n === p || n.startsWith(p))
-}
-
-/**
- * Load a Google Font by its display name (e.g. "Outfit", "Plus Jakarta Sans").
- * Constructs a canonical Google Fonts v2 URL. No-ops for system fonts.
- */
-function loadThemeGoogleFont(fontStack: string) {
-  const firstName = fontStack.split(",")[0].replace(/['"/]/g, "").trim()
-  if (!firstName || isSystemFont(firstName)) return
-  const encoded = firstName.replace(/\s+/g, "+")
-  const id = `gf-theme-${encoded}`
-  if (document.getElementById(id)) return
-  const link = document.createElement("link")
-  link.id = id
-  link.rel = "stylesheet"
-  link.href = `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;500;700&display=swap`
-  document.head.appendChild(link)
-}
-
-/**
- * Override the --font-sans / --font-mono inline styles that Next.js injects
- * on <html> with the values from the theme CSS. Loads Google Fonts as needed.
- */
-function applyThemeFontsToDom(
-  fontSans: string | null,
-  fontMono: string | null
-) {
-  if (fontSans) {
-    loadThemeGoogleFont(fontSans)
-    document.documentElement.style.setProperty("--font-sans", fontSans)
-  }
-  if (fontMono) {
-    loadThemeGoogleFont(fontMono)
-    document.documentElement.style.setProperty("--font-mono", fontMono)
-  }
-}
-
-/** Remove theme font overrides so Next.js CSS vars take effect again. */
-function revertThemeFontsToDom() {
-  document.documentElement.style.removeProperty("--font-sans")
-  document.documentElement.style.removeProperty("--font-mono")
-}
-
-/**
- * Inject / swap the theme stylesheet. When url is null (default theme),
- * the sheet is removed. In both cases, the accent is always preserved
- * on data-accent so the user can still override theme colours.
- */
-function applyColorThemeToDom(
-  url: string | null,
-  currentAccent: AccentColor,
-  onLoad?: () => void
-) {
-  const existing = document.getElementById(
-    THEME_LINK_ID
-  ) as HTMLLinkElement | null
-
-  document.documentElement.setAttribute("data-accent", currentAccent)
-
-  if (!url) {
-    existing?.remove()
-    queueMicrotask(() => {
-      syncVeloKeyFavicon()
-      onLoad?.()
-    })
-    return
-  }
-
-  // Safety fallback in case the browser hangs on invalid @imports in raw CSS files
-  let handled = false
-  const finish = () => {
-    if (handled) return
-    handled = true
-    syncVeloKeyFavicon()
-    onLoad?.()
-  }
-
-  const timeoutId = setTimeout(finish, 2000)
-
-  if (existing) {
-    existing.onload = () => {
-      clearTimeout(timeoutId)
-      finish()
-    }
-    existing.onerror = () => {
-      clearTimeout(timeoutId)
-      finish()
-    }
-    existing.href = url
-  } else {
-    const link = document.createElement("link")
-    link.id = THEME_LINK_ID
-    link.rel = "stylesheet"
-    link.onload = () => {
-      clearTimeout(timeoutId)
-      finish()
-    }
-    link.onerror = () => {
-      clearTimeout(timeoutId)
-      finish()
-    }
-    link.href = url
-    document.head.appendChild(link)
-  }
-}
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [accent, setAccentState] = useState<AccentColor>("teal")
+  const [keyboardTheme, setKeyboardThemeState] =
+    useState<KeyboardThemeName>("classic")
   const [font, setFontState] = useState<TypingFont>("geist-mono")
-  const [colorTheme, setColorThemeState] = useState<string>("default")
-  const [themeLoading, setThemeLoading] = useState(false)
   const [showKeyboard, setShowKeyboardState] = useState(true)
   const [keyboardStyle, setKeyboardStyleState] =
     useState<KeyboardStyle>("normal")
@@ -266,25 +127,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         return raw === null ? null : raw !== "false"
       }
 
-      const initialAccent = (read("tc-accent") as AccentColor | null) ?? "teal"
-      setAccentState(initialAccent)
-      applyAccentToDom(initialAccent)
-
       const savedFont = read("tc-font") as TypingFont | null
       if (savedFont) {
         setFontState(savedFont)
         applyFontToDom(savedFont)
       }
 
-      const savedColorTheme = read("tc-color-theme")
-      if (savedColorTheme) {
-        setColorThemeState(savedColorTheme)
-        // Pass initialAccent so applyColorThemeToDom can restore data-accent if needed
-        applyColorThemeToDom(read("tc-color-theme-url") ?? null, initialAccent)
-        applyThemeFontsToDom(
-          read("tc-color-theme-font-sans"),
-          read("tc-color-theme-font-mono")
-        )
+      const savedKeyboardTheme = read(KEYBOARD_THEME_STORAGE_KEY)
+      if (savedKeyboardTheme && savedKeyboardTheme in KEYBOARD_THEMES) {
+        setKeyboardThemeState(savedKeyboardTheme as KeyboardThemeName)
       }
 
       const savedKeyboardStyle = read(
@@ -329,64 +180,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  const setAccent = (c: AccentColor) => {
-    setAccentState(c)
-    applyAccentToDom(c)
-    localStorage.setItem("tc-accent", c)
+  const setKeyboardTheme = (t: KeyboardThemeName) => {
+    setKeyboardThemeState(t)
+    localStorage.setItem(KEYBOARD_THEME_STORAGE_KEY, t)
   }
 
   const setFont = (f: TypingFont) => {
     setFontState(f)
     applyFontToDom(f)
     localStorage.setItem("tc-font", f)
-  }
-
-  const setColorTheme = (
-    t: string,
-    url: string | null,
-    fontSans?: string | null,
-    fontMono?: string | null
-  ) => {
-    setColorThemeState(t)
-    setThemeLoading(true)
-
-    // When changing a theme, automatically sync the accent to match the theme
-    // (the user can still override it later via the accent picker)
-    const newAccent = (t !== "default" ? t : "teal") as AccentColor
-    setAccentState(newAccent)
-    localStorage.setItem("tc-accent", newAccent)
-
-    // Auto-sync font if the theme specifies it
-    if (fontMono) {
-      const firstFont = fontMono.split(",")[0].replace(/['"/]/g, "").trim()
-      const newFont = firstFont.toLowerCase().replace(/\s+/g, "-") as TypingFont
-      setFontState(newFont)
-      applyFontToDom(newFont)
-      localStorage.setItem("tc-font", newFont)
-    } else if (t === "default") {
-      // Revert to default font
-      setFontState("geist-mono")
-      applyFontToDom("geist-mono")
-      localStorage.setItem("tc-font", "geist-mono")
-    }
-
-    applyColorThemeToDom(url, newAccent, () => setThemeLoading(false))
-    if (url) {
-      // Apply and persist font overrides
-      applyThemeFontsToDom(fontSans ?? null, fontMono ?? null)
-      localStorage.setItem("tc-color-theme-url", url)
-      if (fontSans) localStorage.setItem("tc-color-theme-font-sans", fontSans)
-      else localStorage.removeItem("tc-color-theme-font-sans")
-      if (fontMono) localStorage.setItem("tc-color-theme-font-mono", fontMono)
-      else localStorage.removeItem("tc-color-theme-font-mono")
-    } else {
-      // Revert fonts back to Next.js defaults
-      revertThemeFontsToDom()
-      localStorage.removeItem("tc-color-theme-url")
-      localStorage.removeItem("tc-color-theme-font-sans")
-      localStorage.removeItem("tc-color-theme-font-mono")
-    }
-    localStorage.setItem("tc-color-theme", t)
   }
 
   const setShowKeyboard = (v: boolean) => {
@@ -480,16 +282,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   return (
     <SettingsContext.Provider
       value={{
-        accent,
-        setAccent,
+        keyboardTheme,
+        setKeyboardTheme,
         font,
         setFont,
         fontCssFamily,
         fontSize,
         setFontSize,
-        colorTheme,
-        setColorTheme,
-        themeLoading,
         showKeyboard,
         setShowKeyboard,
         keyboardStyle,
@@ -528,14 +327,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {themeLoading && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm transition-all duration-300">
-          <div className="size-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-          <p className="mt-4 animate-pulse text-sm font-medium text-muted-foreground">
-            Applying Theme...
-          </p>
-        </div>
-      )}
     </SettingsContext.Provider>
   )
 }
