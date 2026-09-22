@@ -218,33 +218,3 @@ export async function getTopWins(
   }
   return out
 }
-
-/** A single player's rank on one mode board, or null when unranked/unavailable. */
-export async function getPlayerRank(
-  playerId: string,
-  mode: LeaderboardMode,
-  weekKey = currentWeekKey()
-): Promise<number | null> {
-  const id = playerId.trim().slice(0, 64)
-  if (!id) return null
-  // We can't reconstruct the member without the nickname; scan for the id
-  // prefix — boards are small (top-20 arcade), so this is fine.
-  const rows = await upstashCommand<RawScoreRow[]>([
-    "ZRANGE",
-    boardKey(mode, weekKey),
-    0,
-    -1,
-    "WITHSCORES",
-    "REV",
-  ])
-  if (!rows || !Array.isArray(rows)) return null
-  for (let i = 0; i + 1 < rows.length; i += 2) {
-    const entry = rows[i] as RawScoreRow | null
-    const member =
-      entry && typeof entry.member === "string"
-        ? entry.member
-        : String(entry ?? "")
-    if (member.split("|")[0] === id) return i / 2 + 1
-  }
-  return null
-}

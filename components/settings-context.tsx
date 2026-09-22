@@ -14,7 +14,6 @@ export type { FontSize, SoundPack, TypingFont } from "@/lib/settings-data"
 export type { KeyboardThemeName } from "@/lib/keyboard-themes"
 
 export { FONT_OPTIONS, FONT_SIZES, SOUND_PACKS } from "@/lib/settings-data"
-export { KEYBOARD_THEMES } from "@/lib/keyboard-themes"
 
 export type KeyboardStyle =
   | "normal"
