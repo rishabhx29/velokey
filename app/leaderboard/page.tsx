@@ -5,7 +5,7 @@ import Link from "next/link"
 import { motion } from "motion/react"
 import {
   IconTrophy,
-  IconTrophyOff,
+  IconHourglass,
   IconMedal,
   IconFlame,
   IconSwords,
@@ -164,18 +164,13 @@ export default function LeaderboardPage() {
   } else if (!configured) {
     body = (
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card px-8 py-12 text-center">
-        <IconTrophyOff size={28} className="text-muted-foreground/50" />
-        <p className="font-semibold">Leaderboard not configured</p>
+        <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-400/80">
+          <IconHourglass size={26} />
+        </div>
+        <p className="text-lg font-bold tracking-tight">Coming soon</p>
         <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-          The weekly board needs a Redis store. Add{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-            UPSTASH_REDIS_REST_URL
-          </code>{" "}
-          and{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-            UPSTASH_REDIS_REST_TOKEN
-          </code>{" "}
-          to your environment to enable it.
+          The weekly global leaderboard is almost ready. Warm up those fingers —
+          the race for the top spot starts at launch.
         </p>
       </div>
     )

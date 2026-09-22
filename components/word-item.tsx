@@ -53,15 +53,18 @@ export const WordItem = memo(function WordItem({
 
     // Transitioning the compositor-only transform lets each new character
     // position retarget from the caret's current visual position instead of
-    // snapping to it. Keep the initial position instant so a new word does
-    // not animate in from its previous location.
+    // snapping to it. A linear curve keeps the velocity constant across
+    // retargets — eased curves restart at zero velocity every keystroke,
+    // which reads as a stutter while typing continuously. Keep the initial
+    // position instant so a new word does not animate in from its previous
+    // location.
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches
     cursor.style.transition =
       displayInput.length === 0 || reduceMotion
         ? "none"
-        : "transform 88ms cubic-bezier(0.22, 1, 0.36, 1)"
+        : "transform 90ms linear"
     cursor.style.transform = `translateX(${x}px)`
   }, [cursorIdx, displayInput.length, isActive, word.length])
 
@@ -83,7 +86,7 @@ export const WordItem = memo(function WordItem({
         ref={cursorRef}
         aria-hidden="true"
         className="typing-cursor pointer-events-none absolute top-0.5 h-[1.2em] w-0.5 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]"
-        style={{ display: "none" }}
+        style={{ display: "none", willChange: "transform" }}
       />
       {word.split("").map((char, cIdx) => {
         const tokenHex = tokenColors?.[cIdx]
