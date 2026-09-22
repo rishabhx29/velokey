@@ -1,0 +1,3 @@
+# Full quality gate before anything reaches the remote.
+# Mirrors the CI "quality" job — a failing check here means CI would fail.
+npm run verify

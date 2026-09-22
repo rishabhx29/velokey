@@ -16,6 +16,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "scan:sonar": "eslint --config eslint.sonar.config.mjs .",
+    "verify": "npm run typecheck && npm run lint && npm run scan:sonar && npm run check:unused && npm run test",
+    "verify:full": "npm run verify && npm run build && npm run test:e2e",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
