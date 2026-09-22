@@ -637,6 +637,8 @@ const PLACE_SUFFIX: Record<number, string> = {
 }
 
 /** Multiplayer race share card: podium of all players + my stats + chart. */
+const RACE_MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" }
+
 function RaceResultCard({
   stats,
   race,
@@ -646,14 +648,7 @@ function RaceResultCard({
   race: { roomCode: string; players: RacePodiumEntry[] }
   theme: ThemeColors
 }) {
-  const medalFor = (placement: number) =>
-    placement === 1
-      ? "🥇"
-      : placement === 2
-        ? "🥈"
-        : placement === 3
-          ? "🥉"
-          : null
+  const medalFor = (placement: number) => RACE_MEDALS[placement] ?? null
 
   const roomLabel = race.roomCode ? `Room ${race.roomCode}` : "Multiplayer race"
 

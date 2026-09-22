@@ -129,6 +129,38 @@ function TrendArrow({ improving }: { improving: boolean | null }) {
   )
 }
 
+function summarizeHistory(history: TestHistoryEntry[]) {
+  const totalTests = history.length
+  if (totalTests === 0)
+    return { totalTests, avgWpm: 0, bestWpm: 0, avgAccuracy: 0, totalTime: 0 }
+  const avgWpm = Math.round(history.reduce((s, h) => s + h.wpm, 0) / totalTests)
+  const bestWpm = Math.max(...history.map((h) => h.wpm))
+  const avgAccuracy =
+    Math.round(
+      (history.reduce((s, h) => s + h.accuracy, 0) / totalTests) * 10
+    ) / 10
+  const totalTime = Math.round(history.reduce((s, h) => s + h.duration, 0) / 60)
+  return { totalTests, avgWpm, bestWpm, avgAccuracy, totalTime }
+}
+
+function consistencyDeltaIcon(delta: number | null): React.ReactNode {
+  return (delta ?? 0) >= 0 ? (
+    <IconTrendingUp size={14} />
+  ) : (
+    <IconTrendingDown size={14} />
+  )
+}
+
+function formatConsistencyDelta(delta: number | null): string {
+  if (delta === null) return "—"
+  return delta > 0 ? `+${delta}%` : `${delta}%`
+}
+
+function consistencySublabel(delta: number | null): string {
+  if (delta === null) return "Needs 20+ recorded tests"
+  return delta >= 0 ? "Getting steadier" : "Getting spikier"
+}
+
 function KeyboardHeatmap({
   keyData,
 }: {
@@ -236,22 +268,9 @@ export default function StatsPage() {
   }, [keyAccuracy])
 
   // Summary stats
-  const totalTests = filteredHistory.length
-  const avgWpm =
-    totalTests > 0
-      ? Math.round(filteredHistory.reduce((s, h) => s + h.wpm, 0) / totalTests)
-      : 0
-  const bestWpm =
-    totalTests > 0 ? Math.max(...filteredHistory.map((h) => h.wpm)) : 0
-  const avgAccuracy =
-    totalTests > 0
-      ? Math.round(
-          (filteredHistory.reduce((s, h) => s + h.accuracy, 0) / totalTests) *
-            10
-        ) / 10
-      : 0
-  const totalTime = Math.round(
-    filteredHistory.reduce((s, h) => s + h.duration, 0) / 60
+  const { totalTests, avgWpm, bestWpm, avgAccuracy, totalTime } = useMemo(
+    () => summarizeHistory(filteredHistory),
+    [filteredHistory]
   )
 
   // Worst 5 keys
@@ -471,26 +490,10 @@ export default function StatsPage() {
                   }
                 />
                 <StatCard
-                  icon={
-                    (consistencyStats.delta ?? 0) >= 0 ? (
-                      <IconTrendingUp size={14} />
-                    ) : (
-                      <IconTrendingDown size={14} />
-                    )
-                  }
+                  icon={consistencyDeltaIcon(consistencyStats.delta)}
                   label="vs Prior 10"
-                  value={
-                    consistencyStats.delta === null
-                      ? "—"
-                      : `${consistencyStats.delta > 0 ? "+" : ""}${consistencyStats.delta}%`
-                  }
-                  sub={
-                    consistencyStats.delta === null
-                      ? "Needs 20+ recorded tests"
-                      : consistencyStats.delta >= 0
-                        ? "Getting steadier"
-                        : "Getting spikier"
-                  }
+                  value={formatConsistencyDelta(consistencyStats.delta)}
+                  sub={consistencySublabel(consistencyStats.delta)}
                 />
               </div>
             </motion.section>

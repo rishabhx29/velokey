@@ -50,6 +50,29 @@ import {
 // Time mode generates this many words up front so nobody runs out mid-race.
 const TIME_MODE_GENERATED_WORDS = 200
 
+/** Better-placed of the two match players, or the survivor on walkover. */
+function raceWinnerId(
+  entries: LeaderboardEntry[],
+  idA: string,
+  idB: string
+): string | null {
+  const entryA = entries.find((e) => e.player.id === idA)
+  const entryB = entries.find((e) => e.player.id === idB)
+  if (entryA && entryB) return entryA.placement < entryB.placement ? idA : idB
+  return entryA?.player.id ?? entryB?.player.id ?? null
+}
+
+/** If one pairing member left, the other wins by walkover; null = both gone. */
+function walkoverSurvivor(
+  alive: { has(id: string): boolean },
+  idA: string,
+  idB: string
+): string | null {
+  if (alive.has(idA)) return idA
+  if (alive.has(idB)) return idB
+  return null
+}
+
 /**
  * Whitelist-sanitize a room-config payload from the HTTP endpoint or a
  * matchmake message. Returns only the fields that are valid; invalid or
@@ -618,30 +641,29 @@ export default class RaceRoom implements Party.Server {
     rankLeaderboard(entries, this.state.config.mode)
 
     // Tournament match just finished? Feed the winner into the bracket.
-    // Winner = better-placed of the two match players (walkover when one
-    // is missing); the results screen stays up and the bracket updates live.
-    if (this.state.tournament && !this.state.tournament.champion) {
-      const t = this.state.tournament
-      const a = this.state.tournamentMatchA
-      const b = this.state.tournamentMatchB
-      if (a && b) {
-        const ea = entries.find((e) => e.player.id === a)
-        const eb = entries.find((e) => e.player.id === b)
-        const winnerId =
-          ea && eb
-            ? ea.placement < eb.placement
-              ? a
-              : b
-            : ((ea ?? eb)?.player.id ?? null)
-        if (winnerId) applyMatchResult(t, winnerId)
-      }
-      this.state.tournamentMatchA = null
-      this.state.tournamentMatchB = null
-      this.broadcastTournamentState()
-    }
+    this.settleTournamentMatch(entries)
 
     this.broadcast({ type: "results", leaderboard: entries })
     this.broadcastRoomState()
+  }
+
+  /**
+   * A tournament match just finished: record the winner in the bracket.
+   * Winner = better-placed of the two match players (walkover when one is
+   * missing); the results screen stays up and the bracket updates live.
+   */
+  private settleTournamentMatch(entries: LeaderboardEntry[]) {
+    const tournament = this.state.tournament
+    if (!tournament || tournament.champion) return
+    const idA = this.state.tournamentMatchA
+    const idB = this.state.tournamentMatchB
+    if (idA && idB) {
+      const winnerId = raceWinnerId(entries, idA, idB)
+      if (winnerId) applyMatchResult(tournament, winnerId)
+    }
+    this.state.tournamentMatchA = null
+    this.state.tournamentMatchB = null
+    this.broadcastTournamentState()
   }
 
   // ── Rematch ──────────────────────────────────────────────────────────────
@@ -808,45 +830,62 @@ export default class RaceRoom implements Party.Server {
       this.resetToLobby()
     }
     if (this.state.status !== "lobby") return
-    const t = this.state.tournament
-    if (!t || t.champion) return
+    const tournament = this.state.tournament
+    if (!tournament || tournament.champion) return
 
-    const matchup = nextMatchup(t)
+    const matchup = nextMatchup(tournament)
     if (!matchup) {
-      const host = this.room.getConnection<unknown>(connectionId)
-      if (host)
-        this.send(host, {
-          type: "error",
-          message: "No pending tournament match",
-        })
+      this.notifyNoPendingMatch(connectionId)
       return
     }
 
     // Guard against players who left mid-tournament: their opponent wins by
     // walkover and we keep advancing until a real pairing is found.
-    const alive = (id: string) => this.state.players.has(id)
-    if (!alive(matchup.a) || !alive(matchup.b)) {
-      const winner = alive(matchup.a)
-        ? matchup.a
-        : alive(matchup.b)
-          ? matchup.b
-          : null
-      if (winner) {
-        applyMatchResult(t, winner)
-        this.broadcastTournamentState()
-        if (t.champion) return
-        this.handleTournamentNext(connectionId)
-      } else {
-        // Both gone — cancel rather than deadlock.
-        this.state.tournament = null
-        this.broadcastTournamentState()
-      }
+    const bothAlive =
+      this.state.players.has(matchup.a) && this.state.players.has(matchup.b)
+    if (
+      !bothAlive &&
+      this.resolveTournamentWalkover(connectionId, tournament, matchup)
+    ) {
       return
     }
 
     this.state.tournamentMatchA = matchup.a
     this.state.tournamentMatchB = matchup.b
     this.handleStart(connectionId)
+  }
+
+  private notifyNoPendingMatch(connectionId: string) {
+    const host = this.room.getConnection<unknown>(connectionId)
+    if (host)
+      this.send(host, {
+        type: "error",
+        message: "No pending tournament match",
+      })
+  }
+
+  /**
+   * A pairing member left: award the walkover (or cancel on double absence)
+   * and keep advancing. Returns true when the situation was handled and the
+   * caller should stop (champion crowned or tournament cancelled).
+   */
+  private resolveTournamentWalkover(
+    connectionId: string,
+    tournament: TournamentState,
+    matchup: { a: string; b: string }
+  ): boolean {
+    const survivor = walkoverSurvivor(this.state.players, matchup.a, matchup.b)
+    if (survivor) {
+      applyMatchResult(tournament, survivor)
+      this.broadcastTournamentState()
+      if (tournament.champion) return true
+      this.handleTournamentNext(connectionId)
+      return true
+    }
+    // Both gone — cancel rather than deadlock.
+    this.state.tournament = null
+    this.broadcastTournamentState()
+    return true
   }
 
   private handleTournamentCancel(connectionId: string) {

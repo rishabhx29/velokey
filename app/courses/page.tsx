@@ -95,6 +95,38 @@ export default function CoursesPage() {
   )
 }
 
+type LessonState = "complete" | "unlocked" | "locked"
+
+function lessonState(complete: boolean, unlocked: boolean): LessonState {
+  if (complete) return "complete"
+  return unlocked ? "unlocked" : "locked"
+}
+
+const LESSON_BUTTON_CLASSES: Record<LessonState, string> = {
+  complete: "border-emerald-500/30 bg-emerald-500/5",
+  unlocked:
+    "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/30",
+  locked: "cursor-not-allowed border-border/40 bg-muted/5 opacity-50",
+}
+
+const LESSON_LABEL_CLASSES: Record<LessonState, string> = {
+  complete: "text-emerald-500",
+  unlocked: "text-primary",
+  locked: "text-muted-foreground",
+}
+
+function LessonActionLabel({ state }: { state: LessonState }) {
+  if (state === "complete") {
+    return (
+      <>
+        <IconRotate size={10} />
+        redo
+      </>
+    )
+  }
+  return state === "unlocked" ? "start" : "locked"
+}
+
 function CourseCard({
   course,
   progress,
@@ -140,6 +172,7 @@ function CourseCard({
           const complete = isLessonComplete(lesson, progress)
           const unlocked = isLessonUnlocked(course, li, progress)
           const best = progress.best[lesson.id]
+          const state = lessonState(complete, unlocked)
           return (
             <button
               key={lesson.id}
@@ -148,11 +181,7 @@ function CourseCard({
               onClick={() => onStartLesson(lesson)}
               className={cn(
                 "group flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 text-left transition-colors",
-                complete
-                  ? "border-emerald-500/30 bg-emerald-500/5"
-                  : unlocked
-                    ? "border-border bg-muted/10 hover:border-primary/40 hover:bg-muted/30"
-                    : "cursor-not-allowed border-border/40 bg-muted/5 opacity-50"
+                LESSON_BUTTON_CLASSES[state]
               )}
             >
               <div className="min-w-0">
@@ -186,23 +215,10 @@ function CourseCard({
                 <span
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 font-mono text-[10px] uppercase",
-                    complete
-                      ? "text-emerald-500"
-                      : unlocked
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                    LESSON_LABEL_CLASSES[state]
                   )}
                 >
-                  {complete ? (
-                    <>
-                      <IconRotate size={10} />
-                      redo
-                    </>
-                  ) : unlocked ? (
-                    "start"
-                  ) : (
-                    "locked"
-                  )}
+                  <LessonActionLabel state={state} />
                 </span>
               </CornerBrackets>
             </button>

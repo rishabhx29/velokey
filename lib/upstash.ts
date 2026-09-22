@@ -41,7 +41,8 @@ export async function upstashPipeline<T = unknown>(
   if (!upstashConfigured()) return null
   try {
     // Pipeline batches go to the /pipeline endpoint (array-of-arrays body).
-    const res = await fetch(`${REST_URL.replace(/\/+$/, "")}/pipeline`, {
+    const baseUrl = REST_URL.endsWith("/") ? REST_URL.slice(0, -1) : REST_URL
+    const res = await fetch(`${baseUrl}/pipeline`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${REST_TOKEN}`,

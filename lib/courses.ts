@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { generateWords } from "@/lib/words"
-import { randomPick } from "@/lib/secure-random"
+import { randomPick, randomShuffle } from "@/lib/secure-random"
 
 export interface CourseLesson {
   id: string
@@ -49,18 +49,15 @@ export function buildLessonWords(lesson: CourseLesson): string[] {
   const drills = Array.from({ length: drillCount }, () =>
     // Solo-key drills first (pure repetition), then mixed-key drills
     drillWord(
-      keyCount === 1 || Math.random() < 0.5 ? [lesson.keys[0]] : lesson.keys,
+      keyCount === 1 || randomPick([true, false])
+        ? [lesson.keys[0]]
+        : lesson.keys,
       keyCount > 2
     )
   )
   const filler = generateWords(lesson.wordCount - drills.length)
-  const all = [...drills, ...filler]
   // Interleave so drills don't all sit at the start
-  for (let i = all.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[all[i], all[j]] = [all[j], all[i]]
-  }
-  return all
+  return randomShuffle([...drills, ...filler])
 }
 
 export const COURSES: Course[] = [

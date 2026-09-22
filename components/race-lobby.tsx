@@ -28,6 +28,51 @@ interface RaceLobbyProps {
   connection: UseRaceConnectionReturn
 }
 
+/** Prefer the authoritative room code from the server; fall back to the URL. */
+function resolveRoomCode(roomCode: string): string | null {
+  if (isValidRoomCode(roomCode)) return roomCode
+  return normalizeRoomCode(window.location.pathname.split("/").pop() ?? "")
+}
+
+/** Copyable invite-code card; falls back to the URL slug when unknown yet. */
+function RoomCodeDisplay({ roomCode }: { roomCode: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const displayCode = resolveRoomCode(roomCode) ?? roomCode
+
+  const handleCopyCode = () => {
+    const code = resolveRoomCode(roomCode)
+    const url = code
+      ? `${window.location.origin}/race/${code}`
+      : `${window.location.origin}${window.location.pathname}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    toast.success("Invite link copied!")
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <>
+      <span className="text-sm font-medium text-muted-foreground">
+        Share this code to invite friends
+      </span>
+      <button
+        onClick={handleCopyCode}
+        className="group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-border/60 bg-muted/30 px-6 py-3 transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-95"
+      >
+        <span className="font-mono text-2xl font-bold tracking-[0.2em]">
+          {extractCodeSuffix(displayCode)}
+        </span>
+        {copied ? (
+          <IconCheck className="text-green-500" />
+        ) : (
+          <IconCopy className="text-muted-foreground transition-colors group-hover:text-primary" />
+        )}
+      </button>
+    </>
+  )
+}
+
 export function RaceLobby({ connection }: RaceLobbyProps) {
   const router = useRouter()
   const {
@@ -40,26 +85,14 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
     setReady,
     disconnect,
   } = connection
-  const [copied, setCopied] = useState(false)
 
   const me = players.find((p) => p.id === myPlayerId)
   const allReady =
     players.length >= 1 && players.every((p) => p.ready || p.isHost) // Host is implicit ready for themselves
   const canStart = isHost && players.length >= 1 && allReady // Allow 1 player for testing/solo-race
-
-  const handleCopyCode = () => {
-    // Prefer the authoritative code from the server; fall back to the URL.
-    const code = isValidRoomCode(roomCode)
-      ? roomCode
-      : normalizeRoomCode(window.location.pathname.split("/").pop() ?? "")
-    const url = code
-      ? `${window.location.origin}/race/${code}`
-      : `${window.location.origin}${window.location.pathname}`
-    navigator.clipboard.writeText(url)
-    setCopied(true)
-    toast.success("Invite link copied!")
-    setTimeout(() => setCopied(false), 2000)
-  }
+  // While a tournament bracket is running, its controls replace start/ready.
+  const tournamentActive =
+    connection.tournament != null && !connection.tournament.champion
 
   return (
     <div className="mx-auto flex min-h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-8 px-6">
@@ -72,28 +105,7 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
 
         {!roomConfig.isQuickMatch ? (
           <div className="mt-2 flex flex-col items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">
-              Share this code to invite friends
-            </span>
-            <button
-              onClick={handleCopyCode}
-              className="group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-border/60 bg-muted/30 px-6 py-3 transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-95"
-            >
-              <span className="font-mono text-2xl font-bold tracking-[0.2em]">
-                {extractCodeSuffix(
-                  isValidRoomCode(roomCode)
-                    ? roomCode
-                    : (normalizeRoomCode(
-                        window.location.pathname.split("/").pop() || ""
-                      ) ?? roomCode)
-                )}
-              </span>
-              {copied ? (
-                <IconCheck className="text-green-500" />
-              ) : (
-                <IconCopy className="text-muted-foreground transition-colors group-hover:text-primary" />
-              )}
-            </button>
+            <RoomCodeDisplay roomCode={roomCode} />
           </div>
         ) : (
           <div className="mt-2 flex flex-col items-center gap-2">
@@ -217,30 +229,30 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
         </button>
 
         {/* Tournament in progress: bracket controls replace start/ready */}
-        {connection.tournament &&
-        !connection.tournament.champion ? null : isHost ? (
-          <button
-            onClick={startRace}
-            disabled={!canStart}
-            className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3 font-bold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <IconPlayerPlay size={18} fill="currentColor" />
-            Start Race
-          </button>
-        ) : connection.tournament && !connection.tournament.champion ? null : (
-          <button
-            onClick={() => setReady(!me?.ready)}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-xl px-8 py-3 font-bold shadow-sm transition-all active:scale-95",
-              me?.ready
-                ? "border border-border/60 bg-muted text-foreground hover:bg-muted/80"
-                : "bg-primary text-primary-foreground hover:opacity-90"
-            )}
-          >
-            {me?.ready ? <IconUser size={18} /> : <IconUserCheck size={18} />}
-            {me?.ready ? "Cancel Ready" : "I'm Ready!"}
-          </button>
-        )}
+        {!tournamentActive &&
+          (isHost ? (
+            <button
+              onClick={startRace}
+              disabled={!canStart}
+              className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3 font-bold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <IconPlayerPlay size={18} fill="currentColor" />
+              Start Race
+            </button>
+          ) : (
+            <button
+              onClick={() => setReady(!me?.ready)}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-xl px-8 py-3 font-bold shadow-sm transition-all active:scale-95",
+                me?.ready
+                  ? "border border-border/60 bg-muted text-foreground hover:bg-muted/80"
+                  : "bg-primary text-primary-foreground hover:opacity-90"
+              )}
+            >
+              {me?.ready ? <IconUser size={18} /> : <IconUserCheck size={18} />}
+              {me?.ready ? "Cancel Ready" : "I'm Ready!"}
+            </button>
+          ))}
       </div>
     </div>
   )

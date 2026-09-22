@@ -136,79 +136,101 @@ export function applyMatchResult(
 
   // Advance to the next undecided pairing, resolving byes as we go.
   let cursor = idx + 1
-  while (cursor < round.winnerIds.length) {
-    const sa = round.slots[cursor * 2]
-    const sb = round.slots[cursor * 2 + 1]
-    if (sa == null && sb == null) {
-      // Double bye — impossible in a valid bracket, but never hang on it.
-      round.winnerIds[cursor] = null
-      cursor += 1
-      continue
-    }
-    if (sa == null || sb == null) {
-      // Bye: the present player auto-advances.
-      const winner = (sa ?? sb) as string
-      round.winnerIds[cursor] = winner
-      if (next) next.slots[cursor] = winner
-      cursor += 1
-      continue
-    }
-    break // real pairing — stop here
+  while (cursor < round.winnerIds.length && isBye(round, cursor)) {
+    resolveBye(round, state.rounds[state.currentRound + 1], cursor)
+    cursor += 1
   }
   state.nextMatchIndex = cursor
 
-  // Round complete? Fill round slots that were never assigned (byes beyond
-  // the last pairing) and move on.
-  if (state.nextMatchIndex >= round.winnerIds.length) {
-    const finalWinners = round.winnerIds.map((w, i) => {
-      if (w != null) return w
-      const sa = round.slots[i * 2]
-      const sb = round.slots[i * 2 + 1]
-      return w ?? sa ?? sb ?? null
-    })
-    for (let i = 0; i < finalWinners.length; i++) {
-      round.winnerIds[i] = finalWinners[i]
-      if (next) next.slots[i] = finalWinners[i]
-    }
+  // Round complete? Fill trailing byes, cascade, and move on.
+  if (state.nextMatchIndex < round.winnerIds.length) return state
 
-    if (next) {
-      // Resolve any byes that exist in the next round's opening pairings.
-      state.currentRound += 1
-      state.nextMatchIndex = 0
-      // If the new round's first pairing is itself a bye, keep skipping
-      // forward until a real pairing or the final is reached.
-      while (state.currentRound < state.rounds.length) {
-        const r = state.rounds[state.currentRound]
-        const sa = r.slots[0]
-        const sb = r.slots[1]
-        if (sa == null || sb == null) {
-          // Resolve every bye in this round immediately.
-          for (let i = 0; i < r.winnerIds.length; i++) {
-            if (r.winnerIds[i] != null) continue
-            const pairA = r.slots[i * 2]
-            const pairB = r.slots[i * 2 + 1]
-            if (pairA == null || pairB == null) {
-              const winner = (pairA ?? pairB) as string | null
-              r.winnerIds[i] = winner
-              const nr = state.rounds[state.currentRound + 1]
-              if (nr) nr.slots[i] = winner
-            }
-          }
-          state.currentRound += 1
-          continue
-        }
-        break
-      }
-      // Tournament over?
-      if (state.currentRound >= state.rounds.length) {
-        const finalRound = state.rounds[state.rounds.length - 1]
-        state.champion = finalRound.winnerIds[0] ?? null
-      }
-    } else {
-      // That was the final.
-      state.champion = winnerId
+  finalizeRound(state, round, next, winnerId)
+  return state
+}
+
+/** True when the pairing at `matchIndex` contains at least one bye (null) slot. */
+function isBye(round: TournamentRound, matchIndex: number): boolean {
+  return (
+    round.slots[matchIndex * 2] == null ||
+    round.slots[matchIndex * 2 + 1] == null
+  )
+}
+
+/**
+ * Auto-advance a bye pairing: the present player wins (double byes —
+ * impossible in a valid bracket — stay null so we never hang on them).
+ */
+function resolveBye(
+  round: TournamentRound,
+  next: TournamentRound | undefined,
+  matchIndex: number
+): void {
+  const slotA = round.slots[matchIndex * 2]
+  const slotB = round.slots[matchIndex * 2 + 1]
+  const winner = slotA ?? slotB
+  round.winnerIds[matchIndex] = winner
+  if (next && winner != null) next.slots[matchIndex] = winner
+}
+
+/** Fill winner slots that were never decided (trailing byes) and cascade. */
+function fillTrailingByes(
+  round: TournamentRound,
+  next: TournamentRound | undefined
+): void {
+  for (let i = 0; i < round.winnerIds.length; i++) {
+    if (round.winnerIds[i] == null) {
+      round.winnerIds[i] = round.slots[i * 2] ?? round.slots[i * 2 + 1] ?? null
     }
+    if (next) next.slots[i] = round.winnerIds[i]
+  }
+}
+
+/** Resolve every undecided bye pairing in the round at `roundIndex`. */
+function resolveRoundByes(state: TournamentState, roundIndex: number): void {
+  const round = state.rounds[roundIndex]
+  const next = state.rounds[roundIndex + 1]
+  for (let i = 0; i < round.winnerIds.length; i++) {
+    if (round.winnerIds[i] != null || !isBye(round, i)) continue
+    resolveBye(round, next, i)
+  }
+}
+
+/**
+ * After a round completes, keep advancing while the new round's first pairing
+ * is itself a bye, resolving those rounds fully, until a real pairing or the
+ * end of the bracket is reached.
+ */
+function advancePastByeRounds(state: TournamentState): void {
+  while (state.currentRound < state.rounds.length) {
+    const round = state.rounds[state.currentRound]
+    if (round.slots[0] != null && round.slots[1] != null) return
+    resolveRoundByes(state, state.currentRound)
+    state.currentRound += 1
+  }
+}
+
+/** Close out a completed round: cascade byes, advance, crown a champion. */
+function finalizeRound(
+  state: TournamentState,
+  round: TournamentRound,
+  next: TournamentRound | undefined,
+  winnerId: string
+): void {
+  fillTrailingByes(round, next)
+  if (!next) {
+    // That was the final.
+    state.champion = winnerId
+    return
   }
 
-  return state
+  state.currentRound += 1
+  state.nextMatchIndex = 0
+  advancePastByeRounds(state)
+
+  // Tournament over?
+  if (state.currentRound >= state.rounds.length) {
+    const finalRound = state.rounds[state.rounds.length - 1]
+    state.champion = finalRound.winnerIds[0] ?? null
+  }
 }

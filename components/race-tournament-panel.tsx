@@ -16,6 +16,30 @@ import {
 import { cn } from "@/lib/utils"
 import type { UseRaceConnectionReturn } from "@/hooks/use-race-connection"
 
+/** Round heading: Final / Semis / Round n. */
+function roundLabel(roundIndex: number, totalRounds: number): string {
+  if (roundIndex === totalRounds - 1) return "Final"
+  if (roundIndex === totalRounds - 2) return "Semis"
+  return `Round ${roundIndex + 1}`
+}
+
+type BracketCellState = "winner" | "loser" | "pending" | "tbd"
+
+function bracketCellState(
+  playerId: string | null,
+  winnerId: string | null
+): BracketCellState {
+  if (winnerId) return playerId === winnerId ? "winner" : "loser"
+  return playerId ? "pending" : "tbd"
+}
+
+const BRACKET_CELL_CLASSES: Record<BracketCellState, string> = {
+  winner: "font-bold text-amber-400",
+  loser: "text-muted-foreground/40 line-through",
+  pending: "text-foreground/80",
+  tbd: "text-muted-foreground/30 italic",
+}
+
 export function RaceTournamentPanel({
   connection,
 }: {
@@ -142,11 +166,7 @@ export function RaceTournamentPanel({
         {t.rounds.map((round, ri) => (
           <div key={ri} className="flex min-w-[9rem] flex-1 flex-col gap-1.5">
             <span className="text-center text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
-              {ri === t.rounds.length - 1
-                ? "Final"
-                : ri === t.rounds.length - 2
-                  ? "Semis"
-                  : `Round ${ri + 1}`}
+              {roundLabel(ri, t.rounds.length)}
             </span>
             {Array.from({ length: round.winnerIds.length }, (_, mi) => {
               const a = round.slots[mi * 2]
@@ -169,13 +189,7 @@ export function RaceTournamentPanel({
                       key={side}
                       className={cn(
                         "truncate rounded px-1.5 py-0.5 font-mono text-[11px]",
-                        w && id === w
-                          ? "font-bold text-amber-400"
-                          : w
-                            ? "text-muted-foreground/40 line-through"
-                            : id
-                              ? "text-foreground/80"
-                              : "text-muted-foreground/30 italic"
+                        BRACKET_CELL_CLASSES[bracketCellState(id, w)]
                       )}
                     >
                       {nickOf(id)}

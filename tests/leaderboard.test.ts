@@ -21,10 +21,10 @@ describe("isoWeekKey", () => {
   })
 
   it("rolls over between Sundays and Mondays", () => {
-    expect(isoWeekKey(new Date(Date.UTC(2026, 8, 20)))) // Sunday
-    expect(isoWeekKey(new Date(Date.UTC(2026, 8, 21)))) // Monday
-    const sun = isoWeekKey(new Date(Date.UTC(2026, 8, 20)))
-    const mon = isoWeekKey(new Date(Date.UTC(2026, 8, 21)))
+    const sun = isoWeekKey(new Date(Date.UTC(2026, 8, 20))) // Sunday
+    const mon = isoWeekKey(new Date(Date.UTC(2026, 8, 21))) // Monday
+    expect(sun).toMatch(/^\d{4}W\d{2}$/)
+    expect(mon).toMatch(/^\d{4}W\d{2}$/)
     expect(sun).not.toBe(mon)
   })
 
