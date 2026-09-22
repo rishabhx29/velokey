@@ -21,6 +21,8 @@ import {
   IconChartLine,
   IconSwords,
   IconHistory,
+  IconBook,
+  IconTrophy,
 } from "@tabler/icons-react"
 
 import { DynamicFavicon } from "@/components/dynamic-favicon"
@@ -330,6 +332,24 @@ function SiteHeader() {
                 />
               </Link>
               <Link
+                href="/courses"
+                prefetch
+                className={cn(
+                  iconButtonClass,
+                  pathname === "/courses" &&
+                    "border-primary/50 bg-primary/10 text-foreground"
+                )}
+                aria-current={pathname === "/courses" ? "page" : undefined}
+                aria-label="Typing Courses"
+              >
+                <IconBook
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  aria-hidden
+                />
+              </Link>
+              <Link
                 href="/about"
                 prefetch
                 className={cn(
@@ -341,6 +361,25 @@ function SiteHeader() {
                 aria-label="About VeloKey"
               >
                 <IconInfoCircle
+                  size={16}
+                  stroke={1.5}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                  aria-hidden
+                />
+              </Link>
+
+              <Link
+                href="/leaderboard"
+                prefetch
+                className={cn(
+                  iconButtonClass,
+                  pathname === "/leaderboard" &&
+                    "border-primary/50 bg-primary/10 text-foreground"
+                )}
+                aria-current={pathname === "/leaderboard" ? "page" : undefined}
+                aria-label="Weekly Leaderboard"
+              >
+                <IconTrophy
                   size={16}
                   stroke={1.5}
                   className="transition-transform duration-200 group-hover:scale-110"

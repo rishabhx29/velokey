@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { useAppChrome } from "@/components/app-chrome"
 import { TypingTest } from "@/components/typing-test"
 import { useSettings, SOUND_PACKS } from "@/components/settings-context"
+import { LANGUAGE_STORAGE_KEY_FALLBACK } from "@/lib/typing-landing"
 import { Loading } from "@/components/ui/loader"
 import { IconKeyboardShow, IconKeyboardHide } from "@tabler/icons-react"
 
@@ -62,6 +63,7 @@ export default function Page() {
     testSettingsOpen,
     setTypingActive,
     homeLogoHandlerRef,
+    startPracticeRef,
   } = useAppChrome()
   const [isFinished, setIsFinished] = useState(false)
   const [typingFocused, setTypingFocused] = useState(true)
@@ -75,6 +77,7 @@ export default function Page() {
     soundEnabled,
     soundPack,
     language,
+    setLanguage,
     setSoundPackLoading,
     settingsLoaded,
   } = useSettings()
@@ -89,6 +92,29 @@ export default function Page() {
     }
     return () => {
       homeLogoHandlerRef.current = null
+    }
+  })
+
+  // A lesson launched from /courses stashes its drill words here; consume it
+  // once on mount and start the session (same pipeline as Practice Dashboard).
+  useMountEffect(() => {
+    try {
+      // Language picked on a /typing/[language] SEO landing page
+      const landingLang = sessionStorage.getItem(LANGUAGE_STORAGE_KEY_FALLBACK)
+      if (landingLang) {
+        sessionStorage.removeItem(LANGUAGE_STORAGE_KEY_FALLBACK)
+        setLanguage(landingLang)
+      }
+
+      const raw = sessionStorage.getItem("vk-lesson-pending")
+      if (!raw) return
+      sessionStorage.removeItem("vk-lesson-pending")
+      const parsed = JSON.parse(raw) as { words: string[] }
+      if (Array.isArray(parsed?.words) && parsed.words.length > 0) {
+        startPracticeRef.current?.(parsed.words)
+      }
+    } catch {
+      sessionStorage.removeItem("vk-lesson-pending")
     }
   })
 

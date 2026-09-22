@@ -51,6 +51,16 @@ interface ShareableStats {
   }>
 }
 
+/** One row of the multiplayer podium on a shared race card. */
+export interface RacePodiumEntry {
+  nickname: string
+  color: string
+  placement: number
+  wpm: number
+  accuracy: number
+  isMe: boolean
+}
+
 type PbInfo = {
   isNewPb: boolean
   previous?: { wpm: number; accuracy: number; date: string } | null
@@ -59,6 +69,11 @@ type PbInfo = {
 interface ScreenshotButtonProps {
   stats: ShareableStats
   pb?: PbInfo
+  /** When set, the card renders as a multiplayer podium card */
+  race?: {
+    roomCode: string
+    players: RacePodiumEntry[]
+  }
 }
 
 interface ThemeColors {
@@ -134,7 +149,7 @@ function readTheme(): ThemeColors {
   }
 }
 
-export function ScreenshotButton({ stats, pb }: ScreenshotButtonProps) {
+export function ScreenshotButton({ stats, pb, race }: ScreenshotButtonProps) {
   const [open, setOpen] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const [busy, setBusy] = useState<null | "copy" | "download" | "tweet">(null)
@@ -210,7 +225,11 @@ export function ScreenshotButton({ stats, pb }: ScreenshotButtonProps) {
       } catch {
         // clipboard may not be permitted
       }
-      const text = `Just hit ${stats.wpm} WPM with ${stats.accuracy}% accuracy in a ${stats.elapsedSeconds} sec test.\n\nThink you can beat me? Try VeloKey, a minimal distraction-free typing test.\n\nhttps://github.com/rishabhx29/velokey`
+      const place = race?.players.find((p) => p.isMe)?.placement
+      const text =
+        race && place
+          ? `Placed #${place} with ${stats.wpm} WPM (${stats.accuracy}% accuracy) in a VeloKey race.\n\nThink you can beat me? Try VeloKey, a minimal distraction-free typing test.\n\nhttps://github.com/rishabhx29/velokey`
+          : `Just hit ${stats.wpm} WPM with ${stats.accuracy}% accuracy in a ${stats.elapsedSeconds} sec test.\n\nThink you can beat me? Try VeloKey, a minimal distraction-free typing test.\n\nhttps://github.com/rishabhx29/velokey`
       const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`
       window.open(url, "_blank", "noopener,noreferrer")
     } catch (err) {
@@ -219,7 +238,7 @@ export function ScreenshotButton({ stats, pb }: ScreenshotButtonProps) {
     } finally {
       setBusy(null)
     }
-  }, [getBlob, stats.wpm, stats.accuracy, stats.elapsedSeconds])
+  }, [getBlob, stats.wpm, stats.accuracy, stats.elapsedSeconds, race])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -244,7 +263,11 @@ export function ScreenshotButton({ stats, pb }: ScreenshotButtonProps) {
         <div className="flex justify-center py-2">
           <ScaledCardPreview>
             <div ref={cardRef}>
-              <ShareableResultCard stats={stats} pb={pb} theme={theme} />
+              {race ? (
+                <RaceResultCard stats={stats} race={race} theme={theme} />
+              ) : (
+                <ShareableResultCard stats={stats} pb={pb} theme={theme} />
+              )}
             </div>
           </ScaledCardPreview>
         </div>
@@ -602,6 +625,185 @@ export function ShareableResultCard({
           theme={theme}
         />
         <SmallStat label="Fixes" value={stats.correctedErrors} theme={theme} />
+      </div>
+    </div>
+  )
+}
+
+const PLACE_SUFFIX: Record<number, string> = {
+  1: "st",
+  2: "nd",
+  3: "rd",
+}
+
+/** Multiplayer race share card: podium of all players + my stats + chart. */
+function RaceResultCard({
+  stats,
+  race,
+  theme,
+}: {
+  stats: ShareableStats
+  race: { roomCode: string; players: RacePodiumEntry[] }
+  theme: ThemeColors
+}) {
+  const medalFor = (placement: number) =>
+    placement === 1
+      ? "🥇"
+      : placement === 2
+        ? "🥈"
+        : placement === 3
+          ? "🥉"
+          : null
+
+  const roomLabel = race.roomCode ? `Room ${race.roomCode}` : "Multiplayer race"
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl"
+      style={{
+        width: 720,
+        backgroundColor: theme.bg,
+        color: theme.foreground,
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        padding: "28px 32px",
+      }}
+    >
+      <div
+        className="flex items-center justify-between"
+        style={{ marginBottom: 20 }}
+      >
+        <span
+          style={{
+            fontFamily: "ui-monospace, monospace",
+            fontSize: 20,
+            fontWeight: 700,
+            color: theme.primary,
+            letterSpacing: "0.02em",
+          }}
+        >
+          VeloKey
+        </span>
+        <span
+          style={{
+            fontFamily: "ui-monospace, monospace",
+            fontSize: 11,
+            color: theme.mutedFg,
+            opacity: 0.6,
+          }}
+        >
+          {roomLabel} | velokey.app
+        </span>
+      </div>
+
+      {/* Podium */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {[...race.players]
+          .sort((a, b) => a.placement - b.placement)
+          .map((p) => (
+            <div
+              key={p.nickname + p.placement}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: p.isMe
+                  ? `1.5px solid ${theme.primary}`
+                  : `1px solid ${theme.border}`,
+                background: p.isMe ? `${theme.primary}14` : theme.muted,
+              }}
+            >
+              <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>
+                {medalFor(p.placement) ?? ""}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontFamily: "ui-monospace, monospace",
+                  color: theme.mutedFg,
+                  width: 28,
+                }}
+              >
+                #{p.placement}
+                {PLACE_SUFFIX[p.placement] ?? "th"}
+              </span>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 99,
+                  backgroundColor: p.color,
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontWeight: p.isMe ? 700 : 500,
+                  fontSize: 14,
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  color: p.isMe ? theme.primary : theme.foreground,
+                }}
+              >
+                {p.nickname}
+                {p.isMe ? " (you)" : ""}
+              </span>
+              <span
+                style={{
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: p.isMe ? theme.primary : theme.foreground,
+                }}
+              >
+                {Math.round(p.wpm)} WPM
+              </span>
+              <span
+                style={{
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: 12,
+                  color: theme.mutedFg,
+                  width: 48,
+                  textAlign: "right",
+                }}
+              >
+                {Math.round(p.accuracy)}%
+              </span>
+            </div>
+          ))}
+      </div>
+
+      {/* My stats row */}
+      <div
+        style={{
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: `1px solid ${theme.border}`,
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 16,
+        }}
+      >
+        <SmallStat label="My WPM" value={Math.round(stats.wpm)} theme={theme} />
+        <SmallStat
+          label="Accuracy"
+          value={`${stats.accuracy}%`}
+          theme={theme}
+        />
+        <SmallStat
+          label="Consistency"
+          value={`${stats.consistency}%`}
+          theme={theme}
+        />
+        <SmallStat
+          label="Time"
+          value={`${stats.elapsedSeconds}s`}
+          theme={theme}
+        />
       </div>
     </div>
   )

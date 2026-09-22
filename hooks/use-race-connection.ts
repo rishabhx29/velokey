@@ -13,6 +13,7 @@ import type {
   RoomConfig,
   RaceProgress,
   LeaderboardEntry,
+  TournamentStateMsg,
 } from "@/shared/race-protocol"
 import { PROGRESS_THROTTLE_MS } from "@/shared/race-protocol"
 import {
@@ -45,6 +46,8 @@ export interface UseRaceConnectionReturn {
   leaderboard: LeaderboardEntry[]
   error: string | null
   connectionState: "connecting" | "connected" | "reconnecting" | "disconnected"
+  /** Live tournament bracket; null when no tournament is running. */
+  tournament: TournamentStateMsg["tournament"]
 
   // Actions
   sendProgress: (
@@ -68,6 +71,9 @@ export interface UseRaceConnectionReturn {
   setReady: (ready: boolean) => void
   rematch: () => void
   disconnect: () => void
+  createTournament: () => void
+  tournamentNext: () => void
+  cancelTournament: () => void
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -94,6 +100,8 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   const [progress, setProgress] = useState<RaceProgress[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [tournament, setTournament] =
+    useState<TournamentStateMsg["tournament"]>(null)
   const [connectionState, setConnectionState] =
     useState<UseRaceConnectionReturn["connectionState"]>("connecting")
 
@@ -194,6 +202,10 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
           setLeaderboard(msg.leaderboard)
           break
 
+        case "tournament_state":
+          setTournament(msg.tournament)
+          break
+
         case "error":
           setError(msg.message)
           // Errors can arrive mid-race (room full on rejoin, rejected result,
@@ -284,6 +296,18 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
     setConnectionState("disconnected")
   }, [send])
 
+  const createTournament = useCallback(() => {
+    send({ type: "tournament_create" })
+  }, [send])
+
+  const tournamentNext = useCallback(() => {
+    send({ type: "tournament_next" })
+  }, [send])
+
+  const cancelTournament = useCallback(() => {
+    send({ type: "tournament_cancel" })
+  }, [send])
+
   return {
     connected,
     players,
@@ -302,11 +326,15 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
     leaderboard,
     error,
     connectionState,
+    tournament,
     sendProgress,
     sendFinish,
     startRace,
     setReady,
     rematch,
     disconnect,
+    createTournament,
+    tournamentNext,
+    cancelTournament,
   }
 }

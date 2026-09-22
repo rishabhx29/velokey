@@ -121,6 +121,41 @@ export interface RematchMsg {
   type: "rematch"
 }
 
+// ── Tournament (host-driven single elimination) ─────────────────────────────
+
+export interface TournamentCreateMsg {
+  type: "tournament_create"
+}
+
+export interface TournamentNextMsg {
+  type: "tournament_next"
+}
+
+export interface TournamentCancelMsg {
+  type: "tournament_cancel"
+}
+
+/** Full bracket state broadcast whenever it changes (host applies results). */
+export interface TournamentStateMsg {
+  type: "tournament_state"
+  tournament: {
+    players: string[]
+    rounds: {
+      slots: (string | null)[]
+      winnerIds: (string | null)[]
+    }[]
+    currentRound: number
+    nextMatchIndex: number
+    config: {
+      mode: RaceMode
+      wordOption: number
+      timeOption: number
+      difficulty: string
+    }
+    champion: string | null
+  } | null
+}
+
 export interface MatchmakeMsg {
   type: "matchmake"
   config: Pick<RoomConfig, "mode" | "wordOption" | "timeOption" | "difficulty">
@@ -143,6 +178,9 @@ export type ClientMessage =
   | RematchMsg
   | MatchmakeMsg
   | MatchCancelMsg
+  | TournamentCreateMsg
+  | TournamentNextMsg
+  | TournamentCancelMsg
 
 // ── Server → Client Messages ─────────────────────────────────────────────────
 
@@ -219,6 +257,7 @@ export type ServerMessage =
   | PlayerLeftMsg
   | QueueStatusMsg
   | MatchedMsg
+  | TournamentStateMsg
 
 // ── Untrusted input sanitization ─────────────────────────────────────────────
 // Every client-supplied value that reaches room state must pass through one of

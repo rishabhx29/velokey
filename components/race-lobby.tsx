@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import type { UseRaceConnectionReturn } from "@/hooks/use-race-connection"
+import { RaceTournamentPanel } from "@/components/race-tournament-panel"
 import {
   extractCodeSuffix,
   isValidRoomCode,
@@ -127,6 +128,9 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
         </div>
       </div>
 
+      {/* Tournament bracket (when active) or create button */}
+      <RaceTournamentPanel connection={connection} />
+
       {/* Players List */}
       <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-border/40 bg-card p-2 shadow-sm">
         <div className="mb-2 flex items-center justify-between border-b border-border/40 px-4 py-3">
@@ -212,7 +216,9 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
           Leave
         </button>
 
-        {isHost ? (
+        {/* Tournament in progress: bracket controls replace start/ready */}
+        {connection.tournament &&
+        !connection.tournament.champion ? null : isHost ? (
           <button
             onClick={startRace}
             disabled={!canStart}
@@ -221,7 +227,7 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
             <IconPlayerPlay size={18} fill="currentColor" />
             Start Race
           </button>
-        ) : (
+        ) : connection.tournament && !connection.tournament.champion ? null : (
           <button
             onClick={() => setReady(!me?.ready)}
             className={cn(

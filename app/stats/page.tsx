@@ -12,6 +12,9 @@ import {
   IconTarget,
   IconFlame,
   IconTrophy,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconWaveSine,
 } from "@tabler/icons-react"
 import {
   LineChart,
@@ -31,16 +34,18 @@ import {
 import {
   readHistory,
   clearHistory,
-  aggregateByDay,
-  aggregateKeyAccuracy,
+  aggregateKeyAccuracyTrend,
+  aggregateConsistency,
+  computeTrendSeries,
   type TestHistoryEntry,
 } from "@/lib/test-history"
 import { CornerBrackets } from "@/components/corner-brackets"
 import { cn } from "@/lib/utils"
 
 const wpmChartConfig: ChartConfig = {
-  avgWpm: { label: "Avg WPM", color: "var(--color-primary)" },
-  maxWpm: { label: "Peak WPM", color: "hsl(var(--muted-foreground))" },
+  rollingAvg: { label: "10-test Avg", color: "var(--color-primary)" },
+  wpm: { label: "Test WPM", color: "hsl(var(--muted-foreground))" },
+  best: { label: "Best So Far", color: "oklch(0.72 0.18 75)" },
 }
 
 const keyChartConfig: ChartConfig = {
@@ -113,10 +118,24 @@ function StatCard({
   )
 }
 
+function TrendArrow({ improving }: { improving: boolean | null }) {
+  if (improving === null) return null
+  const Icon = improving ? IconTrendingUp : IconTrendingDown
+  return (
+    <Icon
+      size={12}
+      className={cn("inline", improving ? "text-emerald-500" : "text-red-400")}
+    />
+  )
+}
+
 function KeyboardHeatmap({
   keyData,
 }: {
-  keyData: Map<string, { accuracy: number; attempts: number }>
+  keyData: Map<
+    string,
+    { accuracy: number; attempts: number; improving: boolean | null }
+  >
 }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -132,6 +151,7 @@ function KeyboardHeatmap({
             const data = keyData.get(key)
             const acc = data?.accuracy ?? 100
             const attempts = data?.attempts ?? 0
+            const improving = data?.improving ?? null
             return (
               <div
                 key={key}
@@ -146,9 +166,12 @@ function KeyboardHeatmap({
               >
                 {key}
                 {attempts > 0 && (
-                  <div className="pointer-events-none absolute -top-10 left-1/2 z-50 -translate-x-1/2 rounded border border-border bg-background px-2 py-1 text-[10px] text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                    <div className="font-semibold">{acc}%</div>
-                    <div className="text-muted-foreground">{attempts} hits</div>
+                  <div className="pointer-events-none absolute -top-12 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded border border-border bg-background px-2 py-1 text-[10px] whitespace-nowrap text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                    <span className="font-semibold">{acc}%</span>
+                    <TrendArrow improving={improving} />
+                    <span className="text-muted-foreground">
+                      {attempts} hits
+                    </span>
                   </div>
                 )}
               </div>
@@ -184,19 +207,30 @@ export default function StatsPage() {
     return history.filter((h) => new Date(h.timestamp).getTime() >= cutoff)
   }, [history, timeRange, loadedAt])
 
-  const dailyData = useMemo(
-    () => aggregateByDay(filteredHistory),
+  const keyAccuracy = useMemo(
+    () => aggregateKeyAccuracyTrend(filteredHistory),
     [filteredHistory]
   )
-  const keyAccuracy = useMemo(
-    () => aggregateKeyAccuracy(filteredHistory),
+  const trendSeries = useMemo(
+    () => computeTrendSeries(filteredHistory),
+    [filteredHistory]
+  )
+  const consistencyStats = useMemo(
+    () => aggregateConsistency(filteredHistory),
     [filteredHistory]
   )
 
   const keyMap = useMemo(() => {
-    const m = new Map<string, { accuracy: number; attempts: number }>()
+    const m = new Map<
+      string,
+      { accuracy: number; attempts: number; improving: boolean | null }
+    >()
     for (const ka of keyAccuracy) {
-      m.set(ka.key, { accuracy: ka.accuracy, attempts: ka.attempts })
+      m.set(ka.key, {
+        accuracy: ka.accuracy,
+        attempts: ka.attempts,
+        improving: ka.improving,
+      })
     }
     return m
   }, [keyAccuracy])
@@ -329,8 +363,8 @@ export default function StatsPage() {
             />
           </div>
 
-          {/* WPM Trend Chart */}
-          {dailyData.length > 1 && (
+          {/* WPM Trend Chart — per-test with rolling average and best-so-far */}
+          {trendSeries.length > 1 && (
             <motion.section
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -347,17 +381,14 @@ export default function StatsPage() {
                   className="h-[250px] w-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dailyData}>
+                    <LineChart data={trendSeries}>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="var(--border)"
                       />
                       <XAxis
-                        dataKey="date"
-                        tickFormatter={(d: string) => {
-                          const parts = d.split("-")
-                          return `${parts[1]}/${parts[2]}`
-                        }}
+                        dataKey="index"
+                        tickFormatter={(i: number) => `#${i}`}
                         stroke="var(--muted-foreground)"
                         fontSize={10}
                         tickLine={false}
@@ -367,27 +398,100 @@ export default function StatsPage() {
                         fontSize={10}
                         tickLine={false}
                       />
-                      <ChartTooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="avgWpm"
-                        stroke="var(--color-primary)"
-                        strokeWidth={2}
-                        dot={false}
-                        name="Avg WPM"
+                      <ChartTooltip
+                        labelFormatter={(i) => {
+                          const point = trendSeries[i - 1]
+                          return point
+                            ? new Date(point.timestamp).toLocaleDateString(
+                                "en-US",
+                                { month: "short", day: "numeric" }
+                              )
+                            : `Test #${i}`
+                        }}
                       />
                       <Line
                         type="monotone"
-                        dataKey="maxWpm"
+                        dataKey="wpm"
                         stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={1}
+                        dot={false}
+                        name="Test WPM"
+                        legendType="none"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="rollingAvg"
+                        stroke="var(--color-primary)"
+                        strokeWidth={2}
+                        dot={false}
+                        name="10-test Avg"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="best"
+                        stroke="oklch(0.72 0.18 75)"
                         strokeWidth={1}
                         strokeDasharray="4 4"
                         dot={false}
-                        name="Peak WPM"
+                        name="Best So Far"
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+              </div>
+            </motion.section>
+          )}
+
+          {/* Consistency */}
+          {consistencyStats.avg !== null && (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-8"
+            >
+              <h2 className="mb-4 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                <IconWaveSine size={14} className="mr-1.5 inline" />
+                Consistency
+              </h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <StatCard
+                  icon={<IconWaveSine size={14} />}
+                  label="All-time Avg"
+                  value={`${consistencyStats.avg}%`}
+                  sub="Keystroke steadiness (CV-based)"
+                />
+                <StatCard
+                  icon={<IconTrendingUp size={14} />}
+                  label="Last 10 Tests"
+                  value={
+                    consistencyStats.recent !== null
+                      ? `${consistencyStats.recent}%`
+                      : "—"
+                  }
+                />
+                <StatCard
+                  icon={
+                    (consistencyStats.delta ?? 0) >= 0 ? (
+                      <IconTrendingUp size={14} />
+                    ) : (
+                      <IconTrendingDown size={14} />
+                    )
+                  }
+                  label="vs Prior 10"
+                  value={
+                    consistencyStats.delta === null
+                      ? "—"
+                      : `${consistencyStats.delta > 0 ? "+" : ""}${consistencyStats.delta}%`
+                  }
+                  sub={
+                    consistencyStats.delta === null
+                      ? "Needs 20+ recorded tests"
+                      : consistencyStats.delta >= 0
+                        ? "Getting steadier"
+                        : "Getting spikier"
+                  }
+                />
               </div>
             </motion.section>
           )}

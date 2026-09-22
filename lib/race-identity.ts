@@ -8,6 +8,7 @@ import { randomPick } from "@/lib/secure-random"
 const NICKNAME_KEY = "velokey-race-nickname"
 const COLOR_KEY = "velokey-race-color"
 const SESSION_KEY = "velokey-race-session"
+const PLAYER_ID_KEY = "velokey-race-player-id"
 
 // ── Nickname Generation ──────────────────────────────────────────────────────
 
@@ -180,4 +181,19 @@ export function refreshNickname(): string {
     localStorage.setItem(NICKNAME_KEY, nick)
   }
   return nick
+}
+
+/**
+ * Stable per-browser token used as the leaderboard identity. Not an account —
+ * it exists only so the weekly board can aggregate a browser's results. Users
+ * can regenerate it by clearing site data.
+ */
+export function getOrCreatePlayerId(): string {
+  if (typeof window === "undefined") return ""
+  let id = localStorage.getItem(PLAYER_ID_KEY)
+  if (!id) {
+    id = generateSessionId()
+    localStorage.setItem(PLAYER_ID_KEY, id)
+  }
+  return id
 }

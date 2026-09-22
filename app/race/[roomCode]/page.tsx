@@ -8,7 +8,8 @@ import { RaceCountdown } from "@/components/race-countdown"
 import { RaceProgressStrip } from "@/components/race-progress-strip"
 import { RaceResults } from "@/components/race-results"
 import { TypingTest } from "@/components/typing-test"
-import { IconSwords } from "@tabler/icons-react"
+import { IconSwords, IconEye } from "@tabler/icons-react"
+import { useMemo } from "react"
 import { normalizeRoomCode, isValidRoomCode } from "@/lib/room-code"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -57,9 +58,23 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
     raceTimeOption,
     raceWordOption,
     roomConfig,
+    tournament,
     sendProgress,
     sendFinish,
   } = connection
+
+  // Tournament spectating: when a bracket match is live and I'm not one of
+  // the two racers, the test engine is display-only (server ignores my input
+  // anyway — this just makes the UX honest).
+  const isSpectator = useMemo(() => {
+    if (!tournament || tournament.champion) return false
+    if (roomStatus !== "racing" && roomStatus !== "countdown") return false
+    const round = tournament.rounds[tournament.currentRound]
+    if (!round) return false
+    const a = round.slots[tournament.nextMatchIndex * 2]
+    const b = round.slots[tournament.nextMatchIndex * 2 + 1]
+    return myPlayerId !== a && myPlayerId !== b
+  }, [tournament, roomStatus, myPlayerId])
 
   // Show connection state if not connected yet
   if (!connected) {
@@ -120,6 +135,12 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
             />
 
             <div className="relative mx-auto w-full max-w-site">
+              {isSpectator && (
+                <div className="mb-3 flex items-center justify-center gap-1.5 text-xs font-semibold tracking-widest text-muted-foreground/70 uppercase">
+                  <IconEye size={14} />
+                  Spectating — tournament match in progress
+                </div>
+              )}
               {/* Gate on server words: before they arrive the engine would mount
                   with fallback solo words, flash the wrong text, then reset when
                   the real race words land (visible on every rejoin/refresh). */}
@@ -131,7 +152,7 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
                   raceWordOption={raceWordOption || undefined}
                   hideControls={true}
                   standaloneLayout={true}
-                  disabled={roomStatus === "countdown"}
+                  disabled={roomStatus === "countdown" || isSpectator}
                   onProgressUpdate={(prog) => {
                     sendProgress(
                       prog.wordIndex,

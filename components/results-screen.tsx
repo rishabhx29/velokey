@@ -12,6 +12,8 @@ import {
   clearMistakes,
 } from "@/lib/mistakes"
 import { saveTestToHistory } from "@/lib/test-history"
+import { submitScoreToLeaderboard } from "@/lib/leaderboard-client"
+import type { LeaderboardMode } from "@/lib/leaderboard"
 import { motion, AnimatePresence } from "motion/react"
 import {
   IconInfoCircle,
@@ -316,9 +318,30 @@ export function ResultsScreen({
       wordCount: targets.length,
       difficulty: modeDetail,
       language: stats.language,
+      consistency,
       charErrors,
       charAttempts,
     })
+
+    // Weekly global leaderboard — only the two competitive solo modes.
+    // Fire-and-forget: an outage here must never disturb the results screen.
+    if (mode === "words" || mode === "time") {
+      void submitScoreToLeaderboard(
+        {
+          wpm,
+          raw,
+          accuracy,
+          consistency,
+          correctChars,
+          incorrectChars,
+          extraChars,
+          elapsedSeconds,
+          wpmHistory: stats.wpmHistory,
+        },
+        mode as LeaderboardMode
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     invalid,
     stats.targetWords,
@@ -336,6 +359,7 @@ export function ResultsScreen({
     elapsedSeconds,
     modeDetail,
     stats.language,
+    consistency,
   ])
   const chartPersonalBest = wpm
 

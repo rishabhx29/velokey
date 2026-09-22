@@ -11,7 +11,11 @@ import {
 import { cn } from "@/lib/utils"
 import type { UseRaceConnectionReturn } from "@/hooks/use-race-connection"
 import { saveTestToHistory } from "@/lib/test-history"
-import { useEffect, useRef } from "react"
+import { submitRaceWin } from "@/lib/leaderboard-client"
+import { getNickname } from "@/lib/race-identity"
+import { ScreenshotButton } from "@/components/shareable-result-card"
+import { RaceTournamentPanel } from "@/components/race-tournament-panel"
+import { useEffect, useRef, useMemo } from "react"
 
 interface RaceResultsProps {
   connection: UseRaceConnectionReturn
@@ -54,11 +58,59 @@ function PlacementBadge({ placement }: { placement: number }) {
 
 export function RaceResults({ connection }: RaceResultsProps) {
   const router = useRouter()
-  const { leaderboard, myPlayerId, isHost, rematch, disconnect, roomConfig } =
-    connection
+  const {
+    leaderboard,
+    myPlayerId,
+    isHost,
+    rematch,
+    disconnect,
+    roomConfig,
+    roomCode,
+  } = connection
 
   const savedRef = useRef(false)
   const myEntry = leaderboard.find((e) => e.player.id === myPlayerId)
+
+  const myStats = useMemo(
+    () =>
+      myEntry
+        ? {
+            wpm: myEntry.wpm,
+            accuracy: myEntry.accuracy,
+            raw: myEntry.raw,
+            correctChars: myEntry.correctChars,
+            incorrectChars: myEntry.incorrectChars,
+            extraChars: 0,
+            missedChars: 0,
+            consistency: myEntry.consistency,
+            elapsedSeconds: Math.round(myEntry.elapsedSeconds),
+            correctedErrors: 0,
+            mode: `race_${roomConfig.mode}`,
+            modeDetail: String(roomConfig.wordOption || ""),
+            language: `race_${roomConfig.difficulty}`,
+            wpmHistory: [] as {
+              second: number
+              wpm: number
+              raw: number
+              errors: number
+            }[],
+          }
+        : null,
+    [myEntry, roomConfig]
+  )
+
+  const podium = useMemo(
+    () =>
+      leaderboard.map((e) => ({
+        nickname: e.player.nickname,
+        color: e.player.color,
+        placement: e.placement,
+        wpm: e.wpm,
+        accuracy: e.accuracy,
+        isMe: e.player.id === myPlayerId,
+      })),
+    [leaderboard, myPlayerId]
+  )
 
   // Save race result to local history once
   useEffect(() => {
@@ -78,11 +130,18 @@ export function RaceResults({ connection }: RaceResultsProps) {
         wordCount: roomConfig.wordOption || 0,
         language: `race_${roomConfig.difficulty}`,
         difficulty: roomConfig.difficulty,
+        consistency: myEntry.consistency,
         charErrors: {},
         charAttempts: {},
       }
 
       saveTestToHistory(stats)
+
+      // Weekly wins board — a 1st-place finish in any multiplayer race.
+      // Fire-and-forget; silently ignored when the board is unconfigured.
+      if (myEntry.placement === 1) {
+        void submitRaceWin(getNickname() || myEntry.player.nickname)
+      }
     }
   }, [myEntry, roomConfig])
 
@@ -207,8 +266,17 @@ export function RaceResults({ connection }: RaceResultsProps) {
         </div>
       </div>
 
+      {/* Tournament bracket + host "Next Match" control */}
+      <RaceTournamentPanel connection={connection} />
+
       {/* Action Buttons */}
       <div className="mt-4 flex items-center gap-4">
+        {myStats && podium.length > 0 && (
+          <ScreenshotButton
+            stats={myStats}
+            race={{ roomCode, players: podium }}
+          />
+        )}
         <button
           onClick={() => {
             disconnect()

@@ -10,6 +10,8 @@ import {
 } from "@/lib/words"
 import { randomPick } from "@/lib/secure-random"
 import { getWorstKeys } from "@/lib/mistakes"
+import { readHistory, aggregateKeyAccuracyTrend } from "@/lib/test-history"
+import { recordLessonResult } from "@/lib/courses"
 import { getQuote, type QuoteLength } from "@/lib/quotes"
 import {
   fetchLanguageWords,
@@ -223,9 +225,16 @@ async function loadTestWords(opts: {
     }
   }
   if (m === "focus") {
+    // Adaptive targeting: lifetime problem keys, plus keys whose accuracy is
+    // actively regressing in recent tests (they need the practice most).
     const worst = getWorstKeys(6)
+    const regressing = aggregateKeyAccuracyTrend(readHistory())
+      .filter((k) => k.improving === false && k.attempts >= 10)
+      .slice(0, 3)
+      .map((k) => k.key)
+    const merged = [...new Set([...regressing, ...worst])]
     const targetKeys =
-      worst.length > 0 ? worst : ["e", "t", "a", "o", "i", "n", "s", "r"]
+      merged.length > 0 ? merged : ["e", "t", "a", "o", "i", "n", "s", "r"]
     const baseWords = await opts.buildWords(opts.lang, opts.wc * 3, {
       punctuation: opts.p,
       numbers: opts.n,
@@ -569,6 +578,18 @@ export function useTypingTest({
       if (finalStats) {
         setFrozenStats(finalStats)
         onRaceFinish?.(finalStats)
+        // Record structured-course lesson results for progression.
+        const lessonRaw = sessionStorage.getItem("vk-lesson-active")
+        if (lessonRaw) {
+          try {
+            const lesson = JSON.parse(lessonRaw) as {
+              lessonId: string
+            }
+            recordLessonResult(lesson.lessonId, finalStats.accuracy)
+          } catch {
+            // malformed marker — ignore, progression is best-effort
+          }
+        }
       }
       setFinished(true)
       setShowControls(true)

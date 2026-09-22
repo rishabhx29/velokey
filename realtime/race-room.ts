@@ -13,6 +13,7 @@ import type {
   LeaderboardEntry,
   FinishMsg,
   MatchmakeMsg,
+  TournamentStateMsg,
 } from "../shared/race-protocol"
 import {
   MAX_PLAYERS,
@@ -29,6 +30,12 @@ import {
 import { validateResultStats } from "../shared/result-validation"
 import { generateRaceWords } from "../shared/race-words"
 import { rankLeaderboard } from "../shared/race-standings"
+import {
+  createTournament,
+  applyMatchResult,
+  nextMatchup,
+  type TournamentState,
+} from "../lib/tournament"
 import { randomPick } from "../lib/secure-random"
 import {
   TIME_OPTIONS,
@@ -83,6 +90,12 @@ interface RoomState {
   inactivityTimer: ReturnType<typeof setTimeout> | null
   disconnectTimers: Map<string, ReturnType<typeof setTimeout>>
   progressBroadcastTimer: ReturnType<typeof setTimeout> | null
+  /** Active single-elimination tournament; null when none is running. */
+  tournament: TournamentState | null
+  /** Player ID reserved to play the current tournament match.
+  /// The other live pairing member is still allowed in as spectator. */
+  tournamentMatchA: string | null
+  tournamentMatchB: string | null
 }
 
 interface MatchQueueEntry {
@@ -138,6 +151,9 @@ export default class RaceRoom implements Party.Server {
       inactivityTimer: null,
       disconnectTimers: new Map(),
       progressBroadcastTimer: null,
+      tournament: null,
+      tournamentMatchA: null,
+      tournamentMatchB: null,
     }
     this.resetInactivityTimer()
   }
@@ -272,6 +288,15 @@ export default class RaceRoom implements Party.Server {
         break
       case "rematch":
         this.handleRematch(sender.id)
+        break
+      case "tournament_create":
+        this.handleTournamentCreate(sender.id)
+        break
+      case "tournament_next":
+        this.handleTournamentNext(sender.id)
+        break
+      case "tournament_cancel":
+        this.handleTournamentCancel(sender.id)
         break
     }
   }
@@ -414,7 +439,14 @@ export default class RaceRoom implements Party.Server {
     this.state.progress.clear()
     this.state.finishData.clear()
     this.lastProgressSnapshot = "" // force a fresh broadcast for the new race
+    const matchA = this.state.tournamentMatchA
+    const matchB = this.state.tournamentMatchB
+    const tournamentMatchLive = matchA != null && matchB != null
     for (const [id] of this.state.players) {
+      // Tournament match: only the two pairing members race — everyone else
+      // is a spectator (no progress entry ⇒ their input is ignored server-side
+      // and they don't block checkRaceEnd).
+      if (tournamentMatchLive && id !== matchA && id !== matchB) continue
       this.state.progress.set(id, {
         playerId: id,
         wordIndex: 0,
@@ -585,6 +617,29 @@ export default class RaceRoom implements Party.Server {
     }
     rankLeaderboard(entries, this.state.config.mode)
 
+    // Tournament match just finished? Feed the winner into the bracket.
+    // Winner = better-placed of the two match players (walkover when one
+    // is missing); the results screen stays up and the bracket updates live.
+    if (this.state.tournament && !this.state.tournament.champion) {
+      const t = this.state.tournament
+      const a = this.state.tournamentMatchA
+      const b = this.state.tournamentMatchB
+      if (a && b) {
+        const ea = entries.find((e) => e.player.id === a)
+        const eb = entries.find((e) => e.player.id === b)
+        const winnerId =
+          ea && eb
+            ? ea.placement < eb.placement
+              ? a
+              : b
+            : ((ea ?? eb)?.player.id ?? null)
+        if (winnerId) applyMatchResult(t, winnerId)
+      }
+      this.state.tournamentMatchA = null
+      this.state.tournamentMatchB = null
+      this.broadcastTournamentState()
+    }
+
     this.broadcast({ type: "results", leaderboard: entries })
     this.broadcastRoomState()
   }
@@ -594,7 +649,11 @@ export default class RaceRoom implements Party.Server {
   private handleRematch(connectionId: string) {
     if (connectionId !== this.state.hostId) return
     if (this.state.status !== "results") return
+    this.resetToLobby()
+  }
 
+  /** Reset a finished race back to the lobby (rematch + tournament flow). */
+  private resetToLobby() {
     // Reset to lobby
     this.state.status = "lobby"
     this.state.words = []
@@ -691,6 +750,9 @@ export default class RaceRoom implements Party.Server {
     this.state.words = []
     this.state.progress.clear()
     this.state.finishData.clear()
+    this.state.tournament = null
+    this.state.tournamentMatchA = null
+    this.state.tournamentMatchB = null
     if (this.state.countdownTimer) {
       clearInterval(this.state.countdownTimer)
       this.state.countdownTimer = null
@@ -700,6 +762,123 @@ export default class RaceRoom implements Party.Server {
       this.state.raceEndTimer = null
     }
     this.state.raceStartTime = 0
+  }
+
+  // ── Tournament (host-driven single elimination) ───────────────────────
+
+  private handleTournamentCreate(connectionId: string) {
+    if (connectionId !== this.state.hostId) return
+    if (this.state.status !== "lobby") return
+    if (this.state.tournament) return
+
+    const playerIds = Array.from(this.state.players.keys())
+    try {
+      this.state.tournament = createTournament(
+        playerIds,
+        this.state.config.mode,
+        this.state.config.wordOption,
+        this.state.config.timeOption,
+        this.state.config.difficulty
+      )
+    } catch {
+      const host = this.room.getConnection<unknown>(connectionId)
+      if (host)
+        this.send(host, {
+          type: "error",
+          message: "Tournament needs at least 4 players",
+        })
+      return
+    }
+
+    this.broadcastTournamentState()
+    // Jump straight into the first match.
+    this.handleTournamentNext(connectionId)
+  }
+
+  /**
+   * Start the next tournament match as a normal race between the two live
+   * pairing members (everyone else stays in the room as a spectator). The
+   * race ends via the standard flow; endRace() detects tournament mode and
+   * applies the result instead of finishing the tournament.
+   */
+  private handleTournamentNext(connectionId: string) {
+    if (connectionId !== this.state.hostId) return
+    // Accept "results" (previous match just ended) and reset to lobby first.
+    if (this.state.status === "results") {
+      this.resetToLobby()
+    }
+    if (this.state.status !== "lobby") return
+    const t = this.state.tournament
+    if (!t || t.champion) return
+
+    const matchup = nextMatchup(t)
+    if (!matchup) {
+      const host = this.room.getConnection<unknown>(connectionId)
+      if (host)
+        this.send(host, {
+          type: "error",
+          message: "No pending tournament match",
+        })
+      return
+    }
+
+    // Guard against players who left mid-tournament: their opponent wins by
+    // walkover and we keep advancing until a real pairing is found.
+    const alive = (id: string) => this.state.players.has(id)
+    if (!alive(matchup.a) || !alive(matchup.b)) {
+      const winner = alive(matchup.a)
+        ? matchup.a
+        : alive(matchup.b)
+          ? matchup.b
+          : null
+      if (winner) {
+        applyMatchResult(t, winner)
+        this.broadcastTournamentState()
+        if (t.champion) return
+        this.handleTournamentNext(connectionId)
+      } else {
+        // Both gone — cancel rather than deadlock.
+        this.state.tournament = null
+        this.broadcastTournamentState()
+      }
+      return
+    }
+
+    this.state.tournamentMatchA = matchup.a
+    this.state.tournamentMatchB = matchup.b
+    this.handleStart(connectionId)
+  }
+
+  private handleTournamentCancel(connectionId: string) {
+    if (connectionId !== this.state.hostId) return
+    if (!this.state.tournament) return
+    this.state.tournament = null
+    this.state.tournamentMatchA = null
+    this.state.tournamentMatchB = null
+    this.broadcastTournamentState()
+  }
+
+  private broadcastTournamentState() {
+    const t = this.state.tournament
+    const msg: TournamentStateMsg = {
+      type: "tournament_state",
+      tournament: t
+        ? {
+            players: t.players,
+            rounds: t.rounds,
+            currentRound: t.currentRound,
+            nextMatchIndex: t.nextMatchIndex,
+            config: {
+              mode: t.config.mode as RoomConfig["mode"],
+              wordOption: t.config.wordOption,
+              timeOption: t.config.timeOption,
+              difficulty: t.config.difficulty,
+            },
+            champion: t.champion,
+          }
+        : null,
+    }
+    this.broadcast(msg)
   }
 
   // ── Quick matchmaking (the dedicated coordinator room) ──────────────────
@@ -989,6 +1168,9 @@ export default class RaceRoom implements Party.Server {
       this.state.players.clear()
       this.state.progress.clear()
       this.state.finishData.clear()
+      this.state.tournament = null
+      this.state.tournamentMatchA = null
+      this.state.tournamentMatchB = null
       this.matchQueue.clear()
       for (const batch of this.matchBatches.values()) clearTimeout(batch.timer)
       this.matchBatches.clear()
