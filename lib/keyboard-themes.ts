@@ -1,9 +1,11 @@
-// The 6 built-in themes of the keyb.himan.me keyboard component
+// The 7 built-in themes of the keyb.himan.me keyboard component
 // (components/ui/keyboard.tsx). Used by the settings panel picker.
 // Keep in sync with KeyboardThemeName in components/ui/keyboard.tsx.
+// "classic" matches the upstream registry theme; "classic2" is the
+// previous app-accent (blue) variant kept under a new name.
 
 export type KeyboardThemeName =
-  "classic" | "mint" | "royal" | "dolch" | "sand" | "scarlet"
+  "classic" | "classic2" | "mint" | "royal" | "dolch" | "sand" | "scarlet"
 
 export interface KeyboardThemeOption {
   id: KeyboardThemeName
@@ -20,6 +22,13 @@ export const KEYBOARD_THEMES: KeyboardThemeOption[] = [
   {
     id: "classic",
     label: "Classic",
+    light: "#F5F5F5",
+    dark: "#737373",
+    accent: "#F57644",
+  },
+  {
+    id: "classic2",
+    label: "Classic 2",
     light: "#e8e8e8",
     dark: "#3a3a3a",
     accent: "var(--primary)",

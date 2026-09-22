@@ -133,7 +133,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
 
       const savedKeyboardTheme = read(KEYBOARD_THEME_STORAGE_KEY)
-      if (savedKeyboardTheme && savedKeyboardTheme in KEYBOARD_THEMES) {
+      if (
+        savedKeyboardTheme &&
+        KEYBOARD_THEMES.some((t) => t.id === savedKeyboardTheme)
+      ) {
         setKeyboardThemeState(savedKeyboardTheme as KeyboardThemeName)
       }
 

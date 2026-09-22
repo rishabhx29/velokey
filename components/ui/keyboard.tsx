@@ -54,7 +54,7 @@ const KEYCAP_FONT_FAMILY =
 export type KeyboardEventSource = "physical" | "pointer"
 export type KeyboardEventPhase = "down" | "up"
 export type KeyboardThemeName =
-  "classic" | "mint" | "royal" | "dolch" | "sand" | "scarlet"
+  "classic" | "classic2" | "mint" | "royal" | "dolch" | "sand" | "scarlet"
 
 export interface KeyboardInteractionEvent {
   code: string
@@ -1087,6 +1087,17 @@ const MINT_DARK_KEYS: KEYCODE[] = [
 // DEFINE YOUR CUSTOM THEMES HERE
 const KEYBOARD_THEMES: Record<KeyboardThemeName, KeyboardThemeDefinition> = {
   classic: {
+    variants: {
+      accent: { bg: "#F57644", text: "rgba(0,0,0,0.5)" },
+      dark: { bg: "#737373", text: "rgba(255,255,255,0.7)" },
+      light: { bg: "#F5F5F5", text: "rgba(0,0,0,0.7)" },
+    },
+    keyVariantOverrides: buildKeyVariantOverrides({
+      accent: [KEYCODE.Escape],
+      dark: CLASSIC_DARK_KEYS,
+    }),
+  },
+  classic2: {
     variants: {
       accent: {
         bg: "var(--color-primary)",
