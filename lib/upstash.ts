@@ -32,15 +32,16 @@ export async function upstashCommand<T = unknown>(
 }
 
 /**
- * Run a pipeline (atomic batch) of Redis commands. Returns null (never
- * throws) when Upstash is unconfigured or unreachable.
+ * Run a pipeline (atomic batch) of Redis commands via the /pipeline endpoint.
+ * Returns null (never throws) when Upstash is unconfigured or unreachable.
  */
 export async function upstashPipeline<T = unknown>(
   commands: unknown[][]
 ): Promise<T[] | null> {
   if (!upstashConfigured()) return null
   try {
-    const res = await fetch(REST_URL, {
+    // Pipeline batches go to the /pipeline endpoint (array-of-arrays body).
+    const res = await fetch(`${REST_URL.replace(/\/+$/, "")}/pipeline`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${REST_TOKEN}`,
