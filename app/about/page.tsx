@@ -11,6 +11,9 @@ export const revalidate = 3600
 
 const REPO_OWNER = "rishabhx29"
 const REPO_NAME = "velokey"
+/** Accounts that appear in GitHub's contributors data but made no real
+ *  contribution (e.g. automated tooling) and should not be listed. */
+const EXCLUDED_CONTRIBUTORS = new Set(["codebuff"])
 
 interface Contributor {
   login: string
@@ -29,7 +32,8 @@ async function fetchContributors(): Promise<Contributor[]> {
       }
     )
     if (!res.ok) return []
-    return (await res.json()) as Contributor[]
+    const all = (await res.json()) as Contributor[]
+    return all.filter((c) => !EXCLUDED_CONTRIBUTORS.has(c.login))
   } catch {
     return []
   }
