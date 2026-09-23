@@ -54,7 +54,8 @@ export interface UseRaceConnectionReturn {
     wordIndex: number,
     totalWords: number,
     wpm: number,
-    accuracy: number
+    accuracy: number,
+    charIndex?: number
   ) => void
   sendFinish: (stats: {
     wpm: number
@@ -214,6 +215,12 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
           toast.error(msg.message)
           break
 
+        case "info":
+          // Non-fatal notices (e.g. ready-check auto-start) — informational
+          // toast, never the error banner.
+          toast(msg.message)
+          break
+
         case "player_joined":
           setPlayers((prev) => {
             if (prev.find((p) => p.id === msg.player.id)) return prev
@@ -249,11 +256,24 @@ export function useRaceConnection(roomCode: string): UseRaceConnectionReturn {
   }, [])
 
   const sendProgress = useCallback(
-    (wordIndex: number, totalWords: number, wpm: number, accuracy: number) => {
+    (
+      wordIndex: number,
+      totalWords: number,
+      wpm: number,
+      accuracy: number,
+      charIndex?: number
+    ) => {
       const now = performance.now()
       if (now - lastProgressRef.current < PROGRESS_THROTTLE_MS) return
       lastProgressRef.current = now
-      send({ type: "progress", wordIndex, totalWords, wpm, accuracy })
+      send({
+        type: "progress",
+        wordIndex,
+        totalWords,
+        wpm,
+        accuracy,
+        charIndex,
+      })
     },
     [send]
   )

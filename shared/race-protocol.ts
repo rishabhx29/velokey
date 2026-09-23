@@ -19,6 +19,9 @@ export const QUICK_MATCH_WAIT_MS = 15 * 1000 // 15 seconds before auto-start
 export const PROGRESS_THROTTLE_MS = 200
 export const PROGRESS_BROADCAST_MS = 200
 export const DISCONNECT_GRACE_MS = 10 * 1000
+// Ready-check auto-start: grace period between "everyone ready" and the
+// countdown firing, giving a last-second cancel a window to land.
+export const READY_AUTO_START_MS = 1500
 export const MATCHMAKER_ROOM_ID = "__velokey_matchmaker__"
 // Quick-match batching: instead of pairing players 1:1 into separate rooms,
 // the matchmaker collects players into batches to form fuller rooms.
@@ -57,6 +60,9 @@ export interface RaceProgress {
   accuracy: number
   finished: boolean
   elapsedSeconds: number
+  /** Character offset into the flattened race text (words joined by spaces).
+   *  Optional so older clients/records without it remain valid. */
+  charIndex?: number
 }
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
@@ -97,6 +103,8 @@ export interface ProgressMsg {
   totalWords: number
   wpm: number
   accuracy: number
+  /** Character offset for opponent in-text carets (clamped server-side). */
+  charIndex?: number
 }
 
 export interface FinishMsg {
@@ -221,6 +229,12 @@ export interface ErrorMsg {
   message: string
 }
 
+/** Non-fatal notice (e.g. ready-check auto-start) — surfaced as info, not error. */
+export interface InfoMsg {
+  type: "info"
+  message: string
+}
+
 export interface PlayerJoinedMsg {
   type: "player_joined"
   player: Player
@@ -253,6 +267,7 @@ export type ServerMessage =
   | ProgressBroadcastMsg
   | ResultsMsg
   | ErrorMsg
+  | InfoMsg
   | PlayerJoinedMsg
   | PlayerLeftMsg
   | QueueStatusMsg
@@ -324,6 +339,19 @@ export function sanitizeMode(mode: unknown): RaceMode | null {
   return (RACE_MODES as readonly string[]).includes(mode as string)
     ? (mode as RaceMode)
     : null
+}
+
+/**
+ * Sanitize a client-supplied character offset for opponent carets. Must be a
+ * non-negative integer clamped to the race text length; anything else falls
+ * back to the nearest valid value so a malformed client can't corrupt the
+ * broadcast for everyone else.
+ */
+export function sanitizeCharIndex(value: unknown, max: number): number {
+  const bound = Math.max(0, Math.floor(max))
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0
+  const n = Math.floor(value)
+  return Math.min(Math.max(n, 0), bound)
 }
 
 /** Sanitize a client-supplied difficulty, returning null when invalid. */

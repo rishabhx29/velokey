@@ -13,6 +13,23 @@ export interface WordItemProps {
   dimmed?: boolean
   isRTL?: boolean
   tokenColors?: (string | undefined)[]
+  /**
+   * Opponent racers' positions inside this word (multiplayer race): maps a
+   * player ID to { char offset within the word, player color }. Rendered as
+   * small colored carets under the text so you can see who is where without
+   * looking up at the progress strip.
+   */
+  opponentCarets?: OpponentCaret[]
+}
+
+export interface OpponentCaret {
+  playerId: string
+  nickname: string
+  color: string
+  /** Index of the word this caret sits in. */
+  wordIndex: number
+  /** Char offset within this word (0 = before first char, word.length = end). */
+  position: number
 }
 
 export const WordItem = memo(function WordItem({
@@ -25,6 +42,7 @@ export const WordItem = memo(function WordItem({
   dimmed = false,
   isRTL = false,
   tokenColors,
+  opponentCarets,
 }: WordItemProps) {
   const wordRef = useRef<HTMLDivElement>(null)
   const cursorRef = useRef<HTMLSpanElement>(null)
@@ -134,6 +152,28 @@ export const WordItem = memo(function WordItem({
               {char}
             </span>
           ))}
+
+      {/* Opponent carets — small colored tabs hanging under the word, each
+          nudged horizontally to the player's exact char position. */}
+      {opponentCarets && opponentCarets.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 bottom-[-5px] left-0 z-10 h-[3px]"
+        >
+          {opponentCarets.map((caret) => (
+            <span
+              key={caret.playerId}
+              title={caret.nickname}
+              className="absolute top-0 h-[3px] w-[3px] -translate-x-1/2 rounded-full transition-[left] duration-200 ease-linear"
+              style={{
+                backgroundColor: caret.color,
+                left: `${Math.max(0, Math.min(100, (caret.position / Math.max(1, word.length)) * 100))}%`,
+                boxShadow: `0 0 4px ${caret.color}`,
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 })

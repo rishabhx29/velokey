@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { motion } from "motion/react"
+import { useMemo, useState } from "react"
+import { motion, AnimatePresence } from "motion/react"
 import { useRouter } from "next/navigation"
 import {
   IconCopy,
@@ -12,6 +12,7 @@ import {
   IconPlayerPlay,
   IconUserCheck,
   IconUser,
+  IconQrcode,
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import type { UseRaceConnectionReturn } from "@/hooks/use-race-connection"
@@ -23,6 +24,7 @@ import {
 } from "@/lib/room-code"
 import { toast } from "sonner"
 import { MAX_PLAYERS } from "@/shared/race-protocol"
+import qrcode from "qrcode-generator"
 
 interface RaceLobbyProps {
   connection: UseRaceConnectionReturn
@@ -31,21 +33,41 @@ interface RaceLobbyProps {
 /** Prefer the authoritative room code from the server; fall back to the URL. */
 function resolveRoomCode(roomCode: string): string | null {
   if (isValidRoomCode(roomCode)) return roomCode
+  if (typeof window === "undefined") return null
   return normalizeRoomCode(window.location.pathname.split("/").pop() ?? "")
 }
 
-/** Copyable invite-code card; falls back to the URL slug when unknown yet. */
+function resolveInviteUrl(roomCode: string): string {
+  const code = resolveRoomCode(roomCode)
+  const origin = typeof window === "undefined" ? "" : window.location.origin
+  if (code) return `${origin}/race/${code}`
+  const path = typeof window === "undefined" ? "" : window.location.pathname
+  return `${origin}${path}`
+}
+
+/** Copyable invite-code card with an expandable QR code for phone joiners. */
 function RoomCodeDisplay({ roomCode }: { roomCode: string }) {
   const [copied, setCopied] = useState(false)
+  const [showQr, setShowQr] = useState(false)
 
   const displayCode = resolveRoomCode(roomCode) ?? roomCode
 
+  // SVG string is generated once per URL; rendered via dangerouslySetInnerHTML
+  // (the library only ever emits <svg>/<path> markup it generated itself).
+  const qrSvg = useMemo(() => {
+    if (!showQr) return null
+    try {
+      const qr = qrcode(0, "M")
+      qr.addData(resolveInviteUrl(roomCode))
+      qr.make()
+      return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+    } catch {
+      return null
+    }
+  }, [showQr, roomCode])
+
   const handleCopyCode = () => {
-    const code = resolveRoomCode(roomCode)
-    const url = code
-      ? `${window.location.origin}/race/${code}`
-      : `${window.location.origin}${window.location.pathname}`
-    navigator.clipboard.writeText(url)
+    navigator.clipboard.writeText(resolveInviteUrl(roomCode))
     setCopied(true)
     toast.success("Invite link copied!")
     setTimeout(() => setCopied(false), 2000)
@@ -56,19 +78,54 @@ function RoomCodeDisplay({ roomCode }: { roomCode: string }) {
       <span className="text-sm font-medium text-muted-foreground">
         Share this code to invite friends
       </span>
-      <button
-        onClick={handleCopyCode}
-        className="group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-border/60 bg-muted/30 px-6 py-3 transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-95"
-      >
-        <span className="font-mono text-2xl font-bold tracking-[0.2em]">
-          {extractCodeSuffix(displayCode)}
-        </span>
-        {copied ? (
-          <IconCheck className="text-green-500" />
-        ) : (
-          <IconCopy className="text-muted-foreground transition-colors group-hover:text-primary" />
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleCopyCode}
+          className="group flex cursor-pointer items-center gap-3 rounded-xl border-2 border-border/60 bg-muted/30 px-6 py-3 transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-95"
+        >
+          <span className="font-mono text-2xl font-bold tracking-[0.2em]">
+            {extractCodeSuffix(displayCode)}
+          </span>
+          {copied ? (
+            <IconCheck className="text-green-500" />
+          ) : (
+            <IconCopy className="text-muted-foreground transition-colors group-hover:text-primary" />
+          )}
+        </button>
+        <button
+          onClick={() => setShowQr((v) => !v)}
+          aria-expanded={showQr}
+          aria-label="Show QR code"
+          title="Scan to join on your phone"
+          className={cn(
+            "flex h-[52px] w-[52px] cursor-pointer items-center justify-center rounded-xl border-2 transition-all active:scale-95",
+            showQr
+              ? "border-primary/50 bg-primary/10 text-primary"
+              : "border-border/60 bg-muted/30 text-muted-foreground hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+          )}
+        >
+          <IconQrcode size={22} />
+        </button>
+      </div>
+      <AnimatePresence>
+        {showQr && qrSvg && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ duration: 0.18 }}
+            className="rounded-2xl border border-border/60 bg-card p-3 shadow-lg"
+          >
+            <div
+              className="size-44 [&>svg]:size-full [&>svg]:rounded-lg"
+              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            />
+            <p className="mt-1 text-center text-[10px] text-muted-foreground">
+              Scan to join on your phone
+            </p>
+          </motion.div>
         )}
-      </button>
+      </AnimatePresence>
     </>
   )
 }
@@ -93,6 +150,14 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
   // While a tournament bracket is running, its controls replace start/ready.
   const tournamentActive =
     connection.tournament != null && !connection.tournament.champion
+  // Mirror of the server's ready-check: when every non-host is ready the
+  // room auto-starts after a short grace period, so show a live hint.
+  const nonHosts = players.filter((p) => !p.isHost)
+  const readyAutoStartArmed =
+    !roomConfig.isQuickMatch &&
+    !tournamentActive &&
+    nonHosts.length > 0 &&
+    nonHosts.every((p) => p.ready && p.connected)
 
   return (
     <div className="mx-auto flex min-h-[60vh] w-full max-w-4xl flex-col items-center justify-center gap-8 px-6">
@@ -149,6 +214,19 @@ export function RaceLobby({ connection }: RaceLobbyProps) {
           <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
             Players ({players.length}/{MAX_PLAYERS})
           </span>
+          <AnimatePresence>
+            {readyAutoStartArmed && (
+              <motion.span
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-green-500 uppercase"
+              >
+                <span className="size-1.5 animate-pulse rounded-full bg-green-500" />
+                Auto-starting — everyone ready
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2">

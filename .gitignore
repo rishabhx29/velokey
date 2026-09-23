@@ -50,6 +50,7 @@ next-env.d.ts
 /.vscode/
 /.gemini/
 /.idea/
+/agent/
 
 # agent session context
 CONTEXT.md

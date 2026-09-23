@@ -288,15 +288,18 @@ export function RaceResults({ connection }: RaceResultsProps) {
           Leave Room
         </button>
 
-        {isHost && (
-          <button
-            onClick={rematch}
-            className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3.5 font-bold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-95"
-          >
-            <IconRefresh size={20} />
-            Race Again
-          </button>
-        )}
+        <button
+          onClick={rematch}
+          title={
+            isHost
+              ? "Take everyone back to the lobby"
+              : "Ask everyone to race again"
+          }
+          className="flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-8 py-3.5 font-bold text-primary-foreground shadow-sm transition-all hover:opacity-90 active:scale-95"
+        >
+          <IconRefresh size={20} />
+          Race Again
+        </button>
       </div>
     </div>
   )

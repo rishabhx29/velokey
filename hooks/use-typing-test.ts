@@ -350,6 +350,7 @@ interface UseTypingTestProps {
     wpm: number
     accuracy: number
     totalWords: number
+    charIndex: number
   }) => void
   onRaceFinish?: (stats: ResultStats) => void
   disabled?: boolean
@@ -439,8 +440,6 @@ export function useTypingTest({
   const screenFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resetAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const finishTestRef = useRef<(() => void) | null>(null)
-  const lastProgressUpdateRef = useRef(0)
-  const lastProgressWordRef = useRef(-1)
 
   const mtCounts = useMemo(
     () =>
@@ -465,28 +464,29 @@ export function useTypingTest({
 
   useEffect(() => {
     if (!onProgressUpdate || !started || finished) return
-    const now = performance.now()
-    const changedWord = wordIndex !== lastProgressWordRef.current
-    // Non-word-change updates (WPM/accuracy ticks) at most every 250ms —
-    // aligned with the server's PROGRESS_BROADCAST_MS so neither side waits
-    // on the other.
-    if (!changedWord && now - lastProgressUpdateRef.current < 250) return
-    lastProgressUpdateRef.current = now
-    lastProgressWordRef.current = wordIndex
     const elapsedSec = startTime ? (Date.now() - startTime) / 1000 : 0
     const elapsedMin = elapsedSec / 60 || 1 / 60
     const computedWpm = Math.round(correctCharsRef.current / 5 / elapsedMin)
+    // Flattened char offset (words joined by single spaces) for opponent
+    // in-text carets and per-character progress: sum of past word lengths
+    // plus one space per gap plus the current typed length. Fired on every
+    // keystroke so the progress strip advances per character; network-side
+    // throttling is handled by the connection's sendProgress.
+    let charIndex = wordIndex
+    for (let i = 0; i < wordIndex; i++) charIndex += words[i]?.length ?? 0
+    charIndex += typed.length
     onProgressUpdate({
       wordIndex,
       totalWords: words.length,
       wpm: computedWpm,
       accuracy,
+      charIndex,
     })
   }, [
     typed,
     wordIndex,
     accuracy,
-    words.length,
+    words,
     started,
     finished,
     startTime,

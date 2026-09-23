@@ -26,6 +26,7 @@ import {
   MATCH_BATCH_SIZE,
   MATCH_BATCH_WINDOW_MS,
   MATCH_BATCH_MIN_SIZE,
+  READY_AUTO_START_MS,
 } from "../shared/race-protocol"
 import { validateResultStats } from "../shared/result-validation"
 import { generateRaceWords } from "../shared/race-words"
@@ -45,6 +46,7 @@ import {
   sanitizeMode,
   sanitizeNickname,
   sanitizeOption,
+  sanitizeCharIndex,
 } from "../shared/race-protocol"
 
 // Time mode generates this many words up front so nobody runs out mid-race.
@@ -115,6 +117,10 @@ interface RoomState {
   progressBroadcastTimer: ReturnType<typeof setTimeout> | null
   /** Active single-elimination tournament; null when none is running. */
   tournament: TournamentState | null
+  /** Auto-start timer armed when every non-host player is ready. */
+  readyCheckTimer: ReturnType<typeof setTimeout> | null
+  /** Whether an auto-start countdown was already fired this lobby. */
+  autoStartFired: boolean
   /** Player ID reserved to play the current tournament match.
   /// The other live pairing member is still allowed in as spectator. */
   tournamentMatchA: string | null
@@ -169,6 +175,8 @@ export default class RaceRoom implements Party.Server {
       finishData: new Map(),
       countdownTimer: null,
       countdownValue: COUNTDOWN_SECONDS,
+      readyCheckTimer: null,
+      autoStartFired: false,
       raceStartTime: 0,
       raceEndTimer: null,
       inactivityTimer: null,
@@ -401,6 +409,10 @@ export default class RaceRoom implements Party.Server {
 
     this.state.players.set(conn.id, player)
 
+    // A fresh join is never ready — cancel any pending ready-check
+    // auto-start so the countdown doesn't fire under the newcomer.
+    this.evaluateReadyAutoStart()
+
     // Broadcast to everyone
     this.broadcastRoomState()
     this.broadcast({
@@ -416,6 +428,61 @@ export default class RaceRoom implements Party.Server {
     if (!player) return
     player.ready = ready
     this.broadcastRoomState()
+    this.evaluateReadyAutoStart()
+  }
+
+  /**
+   * Ready-check auto-start: when every non-host player is ready, start the
+   * countdown automatically after a short grace period so nobody has to sit
+   * waiting for the host to click. Any un-ready or newly joined player
+   * cancels the pending auto-start. Host-only manual start still works.
+   */
+  private evaluateReadyAutoStart() {
+    if (this.state.status !== "lobby") return
+    if (this.state.config.isQuickMatch) return
+    // Tournament brackets advance via the host's "Next Match" control —
+    // never auto-start a plain race under an active bracket.
+    if (this.state.tournament) return
+    const nonHosts = [...this.state.players.values()].filter(
+      (p) => p.connectionId !== this.state.hostId
+    )
+    const allReady =
+      nonHosts.length > 0 && nonHosts.every((p) => p.ready && p.connected)
+    if (allReady && !this.state.autoStartFired) {
+      this.state.autoStartFired = true
+      this.broadcast({
+        type: "info",
+        message: "All players ready — starting automatically…",
+      })
+      this.state.readyCheckTimer = setTimeout(() => {
+        this.state.readyCheckTimer = null
+        if (this.state.status === "lobby" && this.allNonHostsStillReady()) {
+          this.beginRaceCountdown()
+        } else {
+          this.state.autoStartFired = false
+        }
+      }, READY_AUTO_START_MS)
+    } else if (!allReady && this.state.readyCheckTimer) {
+      clearTimeout(this.state.readyCheckTimer)
+      this.state.readyCheckTimer = null
+      this.state.autoStartFired = false
+    }
+  }
+
+  private allNonHostsStillReady(): boolean {
+    const nonHosts = [...this.state.players.values()].filter(
+      (p) => p.connectionId !== this.state.hostId
+    )
+    return nonHosts.length > 0 && nonHosts.every((p) => p.ready && p.connected)
+  }
+
+  /** Cancel any pending ready-check auto-start (status left the lobby). */
+  private cancelReadyAutoStart() {
+    if (this.state.readyCheckTimer) {
+      clearTimeout(this.state.readyCheckTimer)
+      this.state.readyCheckTimer = null
+    }
+    this.state.autoStartFired = false
   }
 
   // ── Start ────────────────────────────────────────────────────────────────
@@ -437,6 +504,17 @@ export default class RaceRoom implements Party.Server {
         })
       return
     }
+
+    this.beginRaceCountdown()
+  }
+
+  /**
+   * Shared by host-start and the ready-check auto-start: generate the race
+   * text, reset progress, and run the 3-2-1 countdown. Must only be called
+   * while status === "lobby" (callers guard this).
+   */
+  private beginRaceCountdown() {
+    this.cancelReadyAutoStart()
 
     // Generate words. For time mode generate plenty so nobody runs out.
     const wordCount =
@@ -525,6 +603,7 @@ export default class RaceRoom implements Party.Server {
       totalWords: number
       wpm: number
       accuracy: number
+      charIndex?: number
     }
   ) {
     if (this.state.status !== "racing") return
@@ -535,6 +614,10 @@ export default class RaceRoom implements Party.Server {
     existing.totalWords = msg.totalWords
     existing.wpm = msg.wpm
     existing.accuracy = msg.accuracy
+    existing.charIndex = sanitizeCharIndex(
+      msg.charIndex,
+      this.state.words.join(" ").length
+    )
     existing.elapsedSeconds = (Date.now() - this.state.raceStartTime) / 1000
 
     this.scheduleProgressBroadcast()
@@ -611,6 +694,7 @@ export default class RaceRoom implements Party.Server {
 
   private endRace() {
     this.state.status = "results"
+    this.cancelReadyAutoStart()
     if (this.state.countdownTimer) {
       clearInterval(this.state.countdownTimer)
       this.state.countdownTimer = null
@@ -669,7 +753,10 @@ export default class RaceRoom implements Party.Server {
   // ── Rematch ──────────────────────────────────────────────────────────────
 
   private handleRematch(connectionId: string) {
-    if (connectionId !== this.state.hostId) return
+    // Any player can take everyone back to the lobby for another race —
+    // waiting on the host alone left losers stranded on the results screen.
+    const player = this.state.players.get(connectionId)
+    if (!player) return
     if (this.state.status !== "results") return
     this.resetToLobby()
   }
@@ -689,6 +776,8 @@ export default class RaceRoom implements Party.Server {
     for (const [, player] of this.state.players) {
       player.ready = false
     }
+    // Allow the ready-check to arm again for the next round.
+    this.cancelReadyAutoStart()
     this.broadcastRoomState()
   }
 
@@ -710,6 +799,9 @@ export default class RaceRoom implements Party.Server {
   private startDisconnectGracePeriod(player: Player, connectionId: string) {
     player.connected = false
     this.broadcastRoomState()
+    // A disconnected player can no longer be "ready" — cancel a pending
+    // ready-check auto-start so the countdown doesn't fire without them.
+    this.evaluateReadyAutoStart()
     const existingTimer = this.state.disconnectTimers.get(connectionId)
     if (existingTimer) clearTimeout(existingTimer)
     this.state.disconnectTimers.set(
@@ -775,6 +867,7 @@ export default class RaceRoom implements Party.Server {
     this.state.tournament = null
     this.state.tournamentMatchA = null
     this.state.tournamentMatchB = null
+    this.cancelReadyAutoStart()
     if (this.state.countdownTimer) {
       clearInterval(this.state.countdownTimer)
       this.state.countdownTimer = null
@@ -1221,6 +1314,7 @@ export default class RaceRoom implements Party.Server {
         clearTimeout(this.state.progressBroadcastTimer)
         this.state.progressBroadcastTimer = null
       }
+      this.cancelReadyAutoStart()
       for (const timer of this.state.disconnectTimers.values())
         clearTimeout(timer)
       this.state.disconnectTimers.clear()

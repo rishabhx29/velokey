@@ -125,4 +125,43 @@ describe("getRaceProgressPercent", () => {
       )
     ).toBe(0)
   })
+
+  it("uses charIndex against totalChars in words mode for per-char progress", () => {
+    // Halfway through a 60-char text by characters, not by word index.
+    expect(
+      getRaceProgressPercent(
+        wordsConfig,
+        prog({ wordIndex: 0, charIndex: 30 }),
+        60
+      )
+    ).toBe(50)
+  })
+
+  it("falls back to wordIndex fraction when totalChars is missing", () => {
+    expect(
+      getRaceProgressPercent(wordsConfig, prog({ wordIndex: 25 }), undefined)
+    ).toBe(50)
+  })
+
+  it("falls back to wordIndex fraction when charIndex is not broadcast", () => {
+    expect(
+      getRaceProgressPercent(wordsConfig, prog({ wordIndex: 25 }), 60)
+    ).toBe(50)
+  })
+
+  it("ignores charIndex in time mode", () => {
+    expect(
+      getRaceProgressPercent(
+        timeConfig,
+        prog({ elapsedSeconds: 15, charIndex: 123 }),
+        60
+      )
+    ).toBe(50)
+  })
+
+  it("clamps charIndex overshoot to 100", () => {
+    expect(
+      getRaceProgressPercent(wordsConfig, prog({ charIndex: 999 }), 60)
+    ).toBe(100)
+  })
 })

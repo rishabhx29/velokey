@@ -1,11 +1,11 @@
 "use client"
 
 import { AnimatePresence, motion, LayoutGroup } from "motion/react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { IconLock, IconPointer, IconRefresh } from "@tabler/icons-react"
 import { ResultsScreen, type ResultStats } from "@/components/results-screen"
 import { TestControls, type CodeManifest } from "@/components/test-controls"
-import { WordItem } from "@/components/word-item"
+import { WordItem, type OpponentCaret } from "@/components/word-item"
 import { useTypingTest } from "@/hooks/use-typing-test"
 import { useSettings } from "@/components/settings-context"
 import { useAppChrome } from "@/components/app-chrome"
@@ -54,6 +54,7 @@ function WordTile({
   isRTL,
   elemRef,
   tokenColors,
+  opponentCarets,
 }: {
   word: string
   isActive: boolean
@@ -67,6 +68,7 @@ function WordTile({
   isRTL: boolean
   elemRef: React.RefObject<HTMLDivElement | null> | undefined
   tokenColors: (string | undefined)[] | undefined
+  opponentCarets?: OpponentCaret[]
 }) {
   const isFuture = !isActive && !isPast
   const displayInput = isActive ? typed : (isPast && (storedInput ?? "")) || ""
@@ -86,6 +88,7 @@ function WordTile({
       dimmed={dimmed}
       isRTL={isRTL}
       tokenColors={tokenColors}
+      opponentCarets={opponentCarets}
     />
   )
 }
@@ -437,18 +440,28 @@ function TestProgressHeader({
 /** Progress race between the user and the AI pace bot. */
 function PaceBotBar({
   youWordIndex,
+  youCharOffset,
   botWordIndex,
   totalWords,
+  totalChars,
   wpm,
   paceBotWpm,
 }: {
   youWordIndex: number
+  /** Flattened char offset of the user's typing (words joined by spaces). */
+  youCharOffset: number
   botWordIndex: number
   totalWords: number
+  /** Flattened race-text length; enables per-character "You" fill. */
+  totalChars: number
   wpm: number
   paceBotWpm: number
 }) {
-  const youPct = Math.min((youWordIndex / totalWords) * 100, 100)
+  // Per-character fraction when text length is known (smooth), else per-word.
+  const youPct =
+    totalChars > 0
+      ? Math.min((youCharOffset / totalChars) * 100, 100)
+      : Math.min((youWordIndex / totalWords) * 100, 100)
   const botPct = Math.min((botWordIndex / totalWords) * 100, 100)
   return (
     <div className="mb-3 flex w-full flex-col gap-1.5 rounded-xl border border-border bg-zinc-100/60 p-2.5 transition-all dark:bg-zinc-800/60">
@@ -502,6 +515,8 @@ interface WordsViewportProps {
   syntaxHighlighting: boolean
   showLineNumbers: boolean
   shikiColors: (string | undefined)[][]
+  /** Opponent racers' caret positions keyed by word index (multiplayer). */
+  opponentsByWord: Map<number, OpponentCaret[]>
 }
 
 /** The hidden input + scrolling words area with overlays. */
@@ -534,6 +549,7 @@ function WordsViewport(props: WordsViewportProps) {
     syntaxHighlighting,
     showLineNumbers,
     shikiColors,
+    opponentsByWord,
   } = props
   const highlightEnabled = isCodeRendering && syntaxHighlighting
   return (
@@ -638,6 +654,7 @@ function WordsViewport(props: WordsViewportProps) {
                     tokenColors={
                       highlightEnabled ? shikiColors[wIdx] : undefined
                     }
+                    opponentCarets={opponentsByWord.get(wIdx)}
                   />
                 )
               })}
@@ -684,12 +701,18 @@ interface TypingTestProps {
     totalWords: number
     wpm: number
     accuracy: number
+    charIndex: number
   }) => void
   onRaceFinish?: (stats: ResultStats) => void
   hideControls?: boolean
   disabled?: boolean
   /** No keyboard footer below (race page): vertically center the test. */
   standaloneLayout?: boolean
+  /**
+   * Multiplayer: opponents' live positions, mapped to words via their
+   * broadcast charIndex. Rendered as colored carets inside the text.
+   */
+  opponentCarets?: OpponentCaret[]
 }
 
 export function TypingTest(props: TypingTestProps) {
@@ -783,6 +806,28 @@ export function TypingTest(props: TypingTestProps) {
   const wordsOpacity = getWordsOpacity(resetting, isFocused)
   const hintOpacity = getHintOpacity(mode, started, controlsVisible)
   const centeredLayout = props.standaloneLayout || !showKeyboard
+
+  // Opponent carets: bucket the flat per-player caret list by the word each
+  // player currently occupies, so each WordTile can render its own markers.
+  const opponentsByWord = useMemo(() => {
+    const map = new Map<number, OpponentCaret[]>()
+    for (const caret of props.opponentCarets ?? []) {
+      const list = map.get(caret.wordIndex)
+      if (list) list.push(caret)
+      else map.set(caret.wordIndex, [caret])
+    }
+    return map
+  }, [props.opponentCarets])
+
+  // Flattened char offset of my typing (past words + typed chars in the
+  // current word) and the total race-text length — feeds the per-character
+  // pace-bot fill so it glides with each keystroke, not word-by-word.
+  const typedCharOffset = useMemo(() => {
+    let offset = wordIndex
+    for (let i = 0; i < wordIndex; i++) offset += words[i]?.length ?? 0
+    return offset + typed.length
+  }, [wordIndex, words, typed])
+  const totalChars = useMemo(() => words.join(" ").length, [words])
 
   const onModeChange = useCallback(
     (next: string) => {
@@ -924,8 +969,10 @@ export function TypingTest(props: TypingTestProps) {
           {paceBotEnabled && words.length > 0 && (
             <PaceBotBar
               youWordIndex={wordIndex}
+              youCharOffset={typedCharOffset}
               botWordIndex={botWordIndex}
               totalWords={words.length}
+              totalChars={totalChars}
               wpm={wpm}
               paceBotWpm={paceBotWpm}
             />
@@ -959,6 +1006,7 @@ export function TypingTest(props: TypingTestProps) {
             syntaxHighlighting={syntaxHighlighting}
             showLineNumbers={showLineNumbers}
             shikiColors={shikiColors}
+            opponentsByWord={opponentsByWord}
           />
         </div>
 

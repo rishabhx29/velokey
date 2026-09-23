@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { useRaceConnection } from "@/hooks/use-race-connection"
 import { RaceLobby } from "@/components/race-lobby"
@@ -9,10 +9,12 @@ import { RaceProgressStrip } from "@/components/race-progress-strip"
 import { RaceResults } from "@/components/race-results"
 import { TypingTest } from "@/components/typing-test"
 import { IconSwords, IconEye } from "@tabler/icons-react"
-import { useMemo } from "react"
 import { normalizeRoomCode, isValidRoomCode } from "@/lib/room-code"
+import { caretWordPosition } from "@/lib/race-progress"
+import { playRaceSound } from "@/lib/race-sounds"
+import { useSettings } from "@/components/settings-context"
+import type { OpponentCaret } from "@/components/word-item"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { toast } from "sonner"
 
 export default function RacePage({
@@ -62,6 +64,90 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
     sendProgress,
     sendFinish,
   } = connection
+
+  const { soundEnabled } = useSettings()
+
+  // Own-car local prediction: the last char offset my typing engine emitted.
+  // The progress strip overrides my car's position with a percent computed
+  // from this instantly, instead of waiting for the ~400ms server round-trip.
+  const [myCharIndex, setMyCharIndex] = useState(0)
+
+  // ── Race sound effects ────────────────────────────────────────────────
+  // Countdown beeps on each 3-2-1 tick, a rising "go" at zero.
+  const prevCountdownRef = useRef<number | null>(null)
+  useEffect(() => {
+    const prev = prevCountdownRef.current
+    prevCountdownRef.current = countdown
+    if (countdown === null || prev === countdown) return
+    if (countdown > 0) playRaceSound("beep", soundEnabled)
+    else if (countdown === 0) playRaceSound("go", soundEnabled)
+  }, [countdown, soundEnabled])
+
+  // Finish horn: fires once when my finished flag first appears.
+  const myFinishRef = useRef(false)
+  useEffect(() => {
+    const mine = progress.find((p) => p.playerId === myPlayerId)
+    if (mine?.finished && !myFinishRef.current) {
+      myFinishRef.current = true
+      playRaceSound("finish", soundEnabled)
+    }
+    if (!mine?.finished) myFinishRef.current = false
+  }, [progress, myPlayerId, soundEnabled])
+
+  // Overtake whoosh: when an opponent's WPM rises above mine while both of
+  // us are still racing. Edge-triggered so it plays once per pass.
+  const overtakeRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (roomStatus !== "racing") {
+      overtakeRef.current.clear()
+      return
+    }
+    const mine = progress.find((p) => p.playerId === myPlayerId)
+    if (!mine || mine.finished) return
+    for (const p of progress) {
+      if (p.playerId === myPlayerId || p.finished) continue
+      const alreadyAhead = overtakeRef.current.has(p.playerId)
+      const nowAhead = p.wordIndex > mine.wordIndex
+      if (nowAhead && !alreadyAhead) {
+        playRaceSound("overtake", soundEnabled)
+      }
+      if (nowAhead) overtakeRef.current.add(p.playerId)
+      else overtakeRef.current.delete(p.playerId)
+    }
+  }, [progress, myPlayerId, roomStatus, soundEnabled])
+
+  // My car's zero-latency percent: char offset ÷ total race-text chars.
+  // Time mode is excluded — it advances by elapsed seconds (server-driven).
+  const myPredictedPercent = useMemo(() => {
+    if (roomConfig.mode === "time" || words.length === 0) return null
+    const totalChars = words.join(" ").length
+    if (totalChars <= 0) return null
+    return Math.max(0, Math.min(100, (myCharIndex / totalChars) * 100))
+  }, [myCharIndex, words, roomConfig.mode])
+
+  // Opponent in-text carets: map every other player's broadcast charIndex
+  // onto the word it lands in. Skips finished players (their caret would sit
+  // at the text end, which the flag already communicates) and spectators.
+  const opponentCarets = useMemo<OpponentCaret[]>(() => {
+    if (roomStatus !== "racing" || words.length === 0) return []
+    const carets: OpponentCaret[] = []
+    for (const p of progress) {
+      if (p.playerId === myPlayerId || p.finished) continue
+      const player = players.find((pl) => pl.id === p.playerId)
+      if (!player) continue
+      if (p.charIndex == null) continue
+      const pos = caretWordPosition(words, p.charIndex)
+      if (!pos) continue
+      carets.push({
+        playerId: p.playerId,
+        nickname: player.nickname,
+        color: player.color,
+        wordIndex: pos.wordIndex,
+        position: pos.position,
+      })
+    }
+    return carets
+  }, [progress, players, myPlayerId, words, roomStatus])
 
   // Tournament spectating: when a bracket match is live and I'm not one of
   // the two racers, the test engine is display-only (server ignores my input
@@ -132,6 +218,8 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
               progress={progress}
               myPlayerId={myPlayerId}
               config={roomConfig}
+              totalChars={words.join(" ").length}
+              myPredictedPercent={myPredictedPercent}
             />
 
             <div className="relative mx-auto w-full max-w-site">
@@ -152,13 +240,16 @@ function RaceClientView({ roomCode }: { roomCode: string }) {
                   raceWordOption={raceWordOption || undefined}
                   hideControls={true}
                   standaloneLayout={true}
+                  opponentCarets={opponentCarets}
                   disabled={roomStatus === "countdown" || isSpectator}
                   onProgressUpdate={(prog) => {
+                    setMyCharIndex(prog.charIndex ?? 0)
                     sendProgress(
                       prog.wordIndex,
                       prog.totalWords,
                       prog.wpm,
-                      prog.accuracy
+                      prog.accuracy,
+                      prog.charIndex
                     )
                   }}
                   onRaceFinish={(stats) => {
