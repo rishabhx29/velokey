@@ -1,143 +1,182 @@
-# VeloKey
+<p align="center">
+  <img src="public/Velokey.png" alt="VeloKey" width="420">
+</p>
 
-**VeloKey** is a minimal, distraction-free typing test website: timed and word-count drills, quotes, and a zen mode, with detailed results (WPM, accuracy, consistency, charts). On large screens you can turn on a **virtual keyboard** that highlights keys as you type, plus **key sounds** and optional **haptics** (supported devices).
+<h1 align="center">VeloKey</h1>
+
+<p align="center">
+  <strong>A minimal, distraction-free typing test — practice solo or race friends in real time.</strong>
+</p>
+
+<p align="center">
+  <a href="https://velokey.app"><strong>velokey.app</strong></a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#getting-started">Getting Started</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#features">Features</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#architecture">Architecture</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  <a href="https://velokey.app"><img src="https://img.shields.io/badge/live-velokey.app-18181B?logo=vercel" alt="Live site"></a>
+  <a href="https://github.com/rishabhx29/velokey/actions/workflows/ci.yml"><img src="https://github.com/rishabhx29/velokey/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License"></a>
+  <img src="https://img.shields.io/badge/tests-259%20passing-brightgreen" alt="Tests">
+</p>
 
 ---
+
+## About
+
+**VeloKey** is an open-source, browser-based typing test built for speed, accuracy, and flow. Practice with timed drills, word counts, quotes, and code snippets — then take it up a notch with **live multiplayer races** over WebSockets. Real-time WPM tracking, responsive virtual keyboards, mechanical switch sound packs, and a curated theme gallery round out the experience.
 
 ## Features
 
-| Area                 | What you get                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Test modes**       | Time (e.g. 15s–120s), word count, quotes (length presets), zen                                                  |
-| **Results**          | WPM, raw speed, accuracy, character breakdown, consistency, elapsed time, WPM-over-time chart                   |
-| **Virtual keyboard** | Classic layout; mirrors expected keys while typing (**desktop / `lg+` only** in the UI)                         |
-| **Sound**            | Per-key feedback via Web Audio (`public/sounds/sound.ogg`); toggle in Settings                                  |
-| **Haptics**          | Optional vibration on supported hardware ([web-haptics](https://www.npmjs.com/package/web-haptics))             |
-| **Settings**         | Theme (light / dark / system), accent color, typography (many Google fonts), show keyboard, sound, realtime WPM |
+### Solo Practice
 
-Settings are stored in `localStorage` in the browser.
+| Mode           | What you get                                                              |
+| -------------- | ------------------------------------------------------------------------- |
+| **Time**       | 15s / 30s / 60s / 120s sprints (or a custom duration)                     |
+| **Words**      | Fixed word-count drills (10 / 25 / 50 / 100, or custom)                   |
+| **Quotes**     | Curated quotes with short / medium / long / XL presets                    |
+| **Code**       | Real code snippets with syntax-aware highlighting                         |
+| **Zen**        | Endless free typing — no timer, no score, just flow                       |
+| **Difficulty** | Easy, Medium, and Hard word tiers across **38 languages** (RTL supported) |
 
----
+### Multiplayer Races
 
-## Prerequisites
+- **Create or join rooms** with shareable `VELO-XXXX` codes **and QR-code invites**
+- **Quick Match** — batched matchmaking fills rooms of up to 8 players
+- **Live opponent carets** rendered directly in the race text, plus a real-time progress strip
+- **Race audio** — countdown beeps, a "go" tone, overtake whooshes, and a finish horn
+- **Ready-check auto-start** — the countdown fires once everyone is ready
+- **Fair play** — server-side anti-cheat validation rejects spoofed stats
+- **Resilient rooms** — 10s disconnect grace with rejoin, host migration, rematch support
+
+### Keyboards & Feedback
+
+- **5 keyboard skins** — Classic, Mechanical, Minimal, RGB, and Magic — with live key highlighting as you type
+- **Mechanical switch sound packs** (Web Audio) and **haptics** on supported devices
+- Toggleable from Settings; everything respects the global sound preference
+
+### Customization
+
+- **17 curated themes** (Gruvbox, Catppuccin, Cyberpunk, Vercel, Supabase, and more) plus a **Theme Studio** for your own
+- Accent colors, Google Fonts typography, realtime WPM display
+- All settings persist in `localStorage` — no account required
+
+### Results & Stats
+
+- WPM, raw speed, accuracy, consistency, and a full character breakdown
+- WPM-over-time charts (Recharts)
+- Local test history with personal bests on the `/stats` page
+
+## Architecture
+
+VeloKey is two independently deployed services sharing one protocol:
+
+```
+┌──────────────────────┐         WebSocket          ┌───────────────────────────┐
+│  Next.js web app     │◄──────────────────────────►│  PartyKit race server      │
+│  app/ components/    │   join · progress · finish │  realtime/race-room.ts    │
+│  hooks/ lib/         │                            │  (Durable Object per room) │
+└──────────────────────┘                            └───────────────────────────┘
+           ▲                                                    ▲
+           │                    shared/race-protocol.ts           │
+           └──────────────── runtime-neutral, both sides ────────┘
+```
+
+- `app/`, `components/`, `hooks/`, `lib/` — the Next.js web application
+- `realtime/` — the authoritative multiplayer service, scaled per-room by design
+- `shared/` — the race protocol consumed by both sides (kept runtime-neutral)
+
+The browser talks to the race server directly, so race traffic never passes through the web server.
+
+## Getting Started
+
+### Prerequisites
 
 - **Node.js** 20+ (LTS recommended)
-- **npm** 10+ (used in the commands below)
+- **npm** 10+
 
-If you use pnpm or Yarn, run the equivalent of `install` and the scripts from `package.json`.
+### Setup
 
----
-
-## Installation
-
-1. **Clone the repository**
+1. **Clone and install**
 
    ```bash
    git clone https://github.com/rishabhx29/velokey.git
    cd velokey
-   ```
-
-2. **Install dependencies**
-
-   ```bash
    npm install
    ```
 
-   This installs all packages and runs **`postinstall`**, which copies quote text from the `inspirational-quotes` package into `data/quotes.json` and generates required data files.
+   `postinstall` runs automatically, generating the quote and code data files.
 
-3. **Configure the realtime server**
+2. **Configure the realtime server**
 
    ```bash
    cp .env.example .env.local
    ```
 
-4. **Run the web and realtime servers in separate terminals**
+   The default `NEXT_PUBLIC_PARTYKIT_HOST=localhost:1999` points at the local dev server.
+
+3. **Run the web and realtime servers** (in separate terminals)
 
    ```bash
-   npm run dev
-   npm run realtime:dev
+   npm run dev          # web app  → http://localhost:3000
+   npm run realtime:dev # races    → localhost:1999
    ```
 
-5. **Open the site**
-
-   In your browser go to [http://localhost:3000](http://localhost:3000).
-
----
-
-## Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-The multiplayer service is deployed independently from the Next.js app:
-
-```bash
-npm run realtime:deploy
-```
-
-Set `NEXT_PUBLIC_PARTYKIT_HOST` in the web deployment to the PartyKit host
-created by that deployment. The browser connects directly to this service, so
-the typing-race WebSocket does not pass through the Next.js server.
-
-## Multiplayer architecture
-
-- `app/`, `components/`, `hooks/`, and `lib/` are the Next.js web application.
-- `realtime/` is the authoritative PartyKit game service, deployed and scaled independently.
-- `shared/` contains the race protocol consumed by both sides. It must remain runtime-neutral.
-
-By default the app listens on port **3000** (`next start`). Use `npm run start -- -p 4000` (or your host’s process manager) to change the port.
-
----
-
-## Sound and the Browser
-
-Audio uses the **Web Audio API**. Many browsers only unlock audio after a **user gesture** (click, tap, or key press). If sound is enabled in Settings but you hear nothing, interact with the page once (e.g. start typing or click the test area), then try again.
-
----
+> **Sound tip:** browsers only unlock audio after a user gesture. If sound is enabled but silent, click or type once, then retry.
 
 ## Project Scripts
 
-| Command                   | Description                     |
-| ------------------------- | ------------------------------- |
-| `npm run dev`             | Development server (webpack)    |
-| `npm run realtime:dev`    | PartyKit multiplayer server     |
-| `npm run realtime:deploy` | Deploy the multiplayer server   |
-| `npm run build`           | Optimized production build      |
-| `npm run start`           | Serve the production build      |
-| `npm run lint`            | Run ESLint                      |
-| `npm run typecheck`       | Run TypeScript (`tsc --noEmit`) |
-| `npm run format`          | Format TS/TSX with Prettier     |
+| Command                    | Description                                          |
+| -------------------------- | ---------------------------------------------------- |
+| `npm run dev`              | Development server (port 3000)                       |
+| `npm run realtime:dev`     | PartyKit multiplayer dev server (port 1999)          |
+| `npm run build` / `start`  | Production build / serve                             |
+| `npm run verify`           | Full gate: typecheck + lint + sonar + knip + tests   |
+| `npm run test`             | Vitest unit & component tests (259 tests)            |
+| `npm run test:coverage`    | Vitest with V8 coverage                              |
+| `npm run test:e2e`         | Playwright browser & accessibility tests (incl. axe) |
+| `npm run storybook`        | Component workshop on port 6006                      |
+| `npm run check:unused`     | Knip — unused files, exports, dependencies           |
+| `npm run analyze`          | Next.js bundle analyzer                              |
+| `npm run audit:lighthouse` | Local Lighthouse report                              |
 
----
+## Testing & QA
 
-## Tech Stack
+Every pull request runs the full suite in CI:
 
-- [Next.js](https://nextjs.org) (App Router), React 19, TypeScript
-- Styling: Tailwind CSS, shadcn-style UI (Radix primitives)
-- Charts: Recharts
-- Motion: [Motion](https://motion.dev)
-- Words / quotes: `random-words`, `inspirational-quotes`
+- **Vitest** — 259 unit and component tests
+- **Playwright** — end-to-end specs, including a live two-player race, plus axe accessibility audits
+- **ESLint + SonarJS** — lint and static analysis with zero tolerated findings
+- **Knip** — dead code and unused exports stay at zero
+- **Husky + lint-staged** — staged changes are formatted and linted on every commit
 
-## Development Tooling
+## Deployment
 
-| Tool                     | Command                    | Purpose                                                                                                |
-| ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Next Bundle Analyzer     | `npm run analyze`          | Inspect client, server, and edge bundles before shipping.                                              |
-| Lighthouse               | `npm run audit:lighthouse` | Generate a local performance, accessibility, SEO, and best-practices report while the site is running. |
-| Vitest + Testing Library | `npm run test`             | Run unit and component tests.                                                                          |
-| Vitest coverage          | `npm run test:coverage`    | Generate V8 coverage for app, component, hook, and library code.                                       |
-| Playwright + axe         | `npm run test:e2e`         | Run browser and accessibility tests. Install Chromium first with `npx playwright install chromium`.    |
-| Storybook                | `npm run storybook`        | Develop and review UI components in isolation at port 6006.                                            |
-| Knip                     | `npm run check:unused`     | Report unused files, exports, and dependencies for review.                                             |
-| Husky + lint-staged      | Runs on `git commit`       | Format and lint staged source changes before each commit.                                              |
+The web app and the realtime service deploy independently:
 
----
+- **Web** — any Node host (Vercel, etc.). Set `NEXT_PUBLIC_PARTYKIT_HOST` to your realtime host.
+- **Realtime** — `npm run realtime:deploy`, or self-host `realtime/` on your platform of choice (production runs on Render). Optionally set `ALLOWED_ORIGINS` (comma-separated) on the server to lock down room-config requests.
+
+## Contributing
+
+Contributions are welcome! To get started:
+
+```bash
+git checkout -b feat/your-feature
+npm run verify        # keep everything green
+```
+
+Then open a pull request — CI will run the full gate automatically. For bugs and ideas, please [open an issue](https://github.com/rishabhx29/velokey/issues).
+
+## Acknowledgments
+
+- [PartyKit](https://partykit.io) for the realtime foundation
+- [shadcn/ui](https://ui.shadcn.com) and Radix for the component system
+- The typing community (monkeytype et al.) for the inspiration to build this well
 
 ## Author
 
-**Rishabh**
+**Rishabh** · [GitHub](https://github.com/rishabhx29) · [rishabh.j.tripathi@gmail.com](mailto:rishabh.j.tripathi@gmail.com)
 
-Email: [rishabh.j.tripathi@gmail.com](mailto:rishabh.j.tripathi@gmail.com)
-GitHub: [rishabhx29](https://github.com/rishabhx29)
+## License
+
+Copyright 2026 Rishabh. Licensed under the [Apache License 2.0](LICENSE).
