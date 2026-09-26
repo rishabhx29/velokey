@@ -47,6 +47,7 @@ export const WordItem = memo(function WordItem({
   const wordRef = useRef<HTMLDivElement>(null)
   const cursorRef = useRef<HTMLSpanElement>(null)
   const charRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const extrasRef = useRef<HTMLSpanElement>(null)
   const cursorIdx = Math.min(displayInput.length, word.length)
 
   useLayoutEffect(() => {
@@ -58,15 +59,30 @@ export const WordItem = memo(function WordItem({
       return
     }
 
+    // The caret is hidden for the whole time its word is inactive, so this is
+    // true exactly when we are entering a word. Entering must place the caret
+    // instantly: with a transition still set it slides in from the transform it
+    // was last left at, which reads as the caret lagging behind the text when
+    // moving on from a word that held a mistake.
+    const enteringWord = cursor.style.display === "none"
     cursor.style.display = ""
+
+    // Measure from character geometry rather than container.scrollWidth. The
+    // caret is an absolutely positioned child of that same container, so once
+    // it is visible past the content edge it inflates scrollWidth — every
+    // re-measure would then place it a caret-width further right than the last.
+    const hasExtras = displayInput.length > word.length
     const target = charRefs.current[cursorIdx]
+    const lastChar = charRefs.current[word.length - 1]
     let x: number
-    if (displayInput.length > word.length) {
-      x = container.scrollWidth
+    if (hasExtras && extrasRef.current) {
+      x = extrasRef.current.offsetLeft + extrasRef.current.offsetWidth
     } else if (target) {
       x = target.offsetLeft
+    } else if (lastChar) {
+      x = lastChar.offsetLeft + lastChar.offsetWidth
     } else {
-      x = container.scrollWidth
+      x = 0
     }
 
     // Transitioning the compositor-only transform lets each new character
@@ -80,9 +96,7 @@ export const WordItem = memo(function WordItem({
       "(prefers-reduced-motion: reduce)"
     ).matches
     cursor.style.transition =
-      displayInput.length === 0 || reduceMotion
-        ? "none"
-        : "transform 90ms linear"
+      enteringWord || reduceMotion ? "none" : "transform 90ms linear"
     cursor.style.transform = `translateX(${x}px)`
   }, [cursorIdx, displayInput.length, isActive, word.length])
 
@@ -142,16 +156,24 @@ export const WordItem = memo(function WordItem({
         )
       })}
 
-      {(isActive || isPast) &&
-        displayInput.length > word.length &&
-        displayInput
-          .slice(word.length)
-          .split("")
-          .map((char, eIdx) => (
-            <span key={`extra-${eIdx}`} className="text-destructive/80">
-              {char}
-            </span>
-          ))}
+      {/* Overflow characters are live feedback for the word being typed, so
+          they render only while it is active. Keeping them on finished words
+          widened those words past their text and pushed every following word
+          sideways, compounding a layout shift with each mistake. A finished
+          word still shows the mistake: wrong characters turn red and the
+          error underline renders below it. */}
+      {isActive && displayInput.length > word.length && (
+        <span ref={extrasRef} className="inline-block">
+          {displayInput
+            .slice(word.length)
+            .split("")
+            .map((char, eIdx) => (
+              <span key={`extra-${eIdx}`} className="text-destructive/80">
+                {char}
+              </span>
+            ))}
+        </span>
+      )}
 
       {/* Opponent carets — small colored tabs hanging under the word, each
           nudged horizontally to the player's exact char position. */}

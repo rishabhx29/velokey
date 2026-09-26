@@ -61,6 +61,19 @@ export const CompletedWrong: Story = {
   },
 }
 
+/** A finished word keeps the error underline but no longer renders the
+ *  overflow characters — they used to widen the word and shove the rest of
+ *  the line sideways. */
+export const CompletedWrongWithoutOverflow: Story = {
+  args: {
+    word: "future",
+    displayInput: "futur",
+    isActive: false,
+    isPast: true,
+    hasError: true,
+  },
+}
+
 export const ExtraChars: Story = {
   args: {
     word: "future",
