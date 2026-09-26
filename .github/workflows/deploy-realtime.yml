@@ -8,6 +8,18 @@ name: Deploy Realtime
 # PartyKit Cloud deploys are intentionally not used: the partykit.dev zone hit
 # Cloudflare's 10k custom-domain limit (partykit/partykit#985) and the managed
 # platform rejects all new deploys until that is resolved.
+#
+# Two implementation notes, both learned the hard way:
+#   1. The `secrets` context is NOT available in `if` expressions. Referencing
+#      it there made this workflow fail to parse on every push (0s, "workflow
+#      file issue"). The secret is mapped to job-level `env` and the step is
+#      gated on `env` instead, which is allowed.
+#   2. No typecheck here: `ci.yml` already typechecks every push to main, and
+#      these jobs run in parallel, so a local typecheck would not gate the
+#      deploy anyway. Render runs its own build and fails it if types break.
+#
+# Resulting state: if the secret is unset the job reports "skipped" rather
+# than failing, which is the graceful behaviour the header describes.
 
 on:
   push:
@@ -27,23 +39,17 @@ jobs:
   deploy:
     name: Trigger Render deploy
     runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Report skipped deploy
+        if: env.RENDER_DEPLOY_HOOK_URL == ''
+        run: echo "::notice::RENDER_DEPLOY_HOOK_URL is not set - skipping realtime deploy."
 
       - name: Trigger Render deploy hook
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
         run: |
-          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" \
             -H "Content-Type: application/json" \
-            -d '{}' && echo "Render deploy triggered"
+            -d '{}'
+          echo "Render deploy triggered"
